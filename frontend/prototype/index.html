@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>拾音 · 编曲助手交互原型</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<aside class="sidebar">
+  <a class="brand" href="#"><span class="brand-icon">♮</span><span>拾音<small>让灵感，有声音。</small></span></a>
+  <button class="primary new-project" id="new-project">＋ 新建歌曲</button>
+  <div class="sidebar-label">我的歌曲 <span>浏览器演示</span></div><div id="projects"></div>
+  <div class="sidebar-bottom"><span class="online-dot"></span> 本地交互原型 · v0.1<p>无模型连接 · 无付费请求<br>不是正式歌曲保存系统</p><button class="text-btn" id="about">查看原型能力说明 ↗</button></div>
+</aside>
+<div class="workspace">
+  <header><div class="breadcrumb">我的歌曲 <span>/</span> <strong id="project-title"></strong></div><div class="header-actions"><span id="save-status">未保存的演示</span><button id="history-open">◷ 历史</button><button id="save">保存到浏览器</button></div></header>
+  <div class="demo-banner"><span>交互原型</span> AI 生成与 MIDI / MP3 导出仅演示；琴键可发出简易合成音，保存仅限当前浏览器。</div>
+  <main>
+    <nav class="steps" aria-label="创作步骤"><button data-view="create" class="active"><b>01</b> 收集灵感</button><i></i><button data-view="edit"><b>02</b> 编曲与调整</button><i></i><button data-view="review"><b>03</b> 审核与导出</button></nav>
+    <section id="view-create" class="view">
+      <div class="page-heading"><div><div class="eyebrow">MAKE ROOM FOR YOUR MELODY</div><h1>从一点灵感，开始一首歌。</h1><p>弹几个音，写一段话，或带上你的歌词。你不需要先懂乐理。</p></div><span class="duration-badge">先试一段<br><strong>60 秒</strong></span></div>
+      <div class="creation-grid"><div class="column">
+        <article class="card keyboard-card"><div class="card-heading"><h2><span class="number">1</span> 试着弹一小段 <small>可跳过</small></h2><span class="tag">简易合成音</span></div>
+          <p class="muted">点击琴键，或按电脑键盘 A–K。先听听，再决定要不要录下来。</p>
+          <div id="instruments" class="segmented"></div><div id="keyboard" class="keyboard" aria-label="模拟琴键"></div>
+          <div class="record-bar"><button id="record" class="record"><span>●</span> 开始录制</button><button id="replay">▷ 回放片段</button><button id="clear-record" class="text-btn">清空</button><span id="record-info">还没有录制片段</span></div>
+          <label class="field">这段旋律如何参与创作？<select id="melody-mode"><option value="extend">依据原始走向，自由延展</option><option value="preserve">保留这段旋律（精确规则待细化）</option></select></label>
+        </article>
+        <article class="card"><div class="card-heading"><h2><span class="number">2</span> 带上你的歌词 <small>可选</small></h2><label class="button" for="lyrics-file">↑ 上传 TXT</label><input id="lyrics-file" type="file" accept=".txt,text/plain" hidden></div>
+          <p class="muted">粘贴或上传歌词，然后勾选连续的几行用于短曲。首版只做器乐试听。</p>
+          <label class="sr-only" for="lyrics">歌词全文</label><textarea id="lyrics" rows="4" placeholder="把想唱的话写在这里……"></textarea>
+          <div class="lyric-toolbar"><button class="text-btn" id="sample-lyrics">试用示例歌词</button><span id="lyric-count">尚未选择歌词</span></div><div id="lyric-lines"></div>
+          <div class="hint">歌词决定要表达的内容；音乐可以有不同的情绪。悲伤的歌词，也可以配明亮的曲风。</div>
+        </article>
+      </div><div class="column">
+        <article class="card intent-card"><div class="card-heading"><h2><span class="number">3</span> 想表达些什么？</h2></div>
+          <label class="field">给这首歌一个主题<input id="theme" placeholder="例如：毕业后，奔向各自的生活"></label>
+          <label class="field">希望听起来是什么感觉？<textarea id="emotion" rows="4" placeholder="例如：有点不舍，但节奏轻快，像带着期待走向远方。"></textarea></label>
+          <div class="chips"><button data-mood="温柔、放松，像傍晚的微风">温柔治愈</button><button data-mood="明亮、轻快，充满向前走的期待">明亮轻快</button><button data-mood="安静、克制，带一点回忆里的不舍">安静怀念</button></div>
+          <details><summary>更多创作设置</summary><label class="field">示例生成结果<select id="demo-result"><option value="success">成功演示</option><option value="failure">失败演示（保留原作品）</option></select></label><p class="muted">正式服务计划接入 DeepSeek。此原型只加载预设音符，不理解输入，也不验证歌词可唱性。</p></details>
+          <div class="generation-summary"><div>本次先做一段 <strong>60 秒短曲</strong></div><p>键盘 · 鼓 · 吉他 · 贝斯<br>满意后由你审核，不会自动生成全曲。</p></div>
+          <button class="primary generate" id="generate">✧ 体验生成流程 <span>示例</span></button><div id="generation-status" role="status" class="muted">不会调用模型，也不会产生费用。</div><progress id="generation-progress" max="4" value="0" hidden></progress><button id="cancel-generation" hidden>取消演示</button>
+        </article>
+        <article class="tip-card"><span>✳</span><h3>先探索，不必一次完美。</h3><p>下一步可以分别听四个声部，移动音符，或用一句话体验修改流程。</p><button class="text-btn" id="open-example">直接看看示例编曲 →</button></article>
+      </div></div>
+    </section>
+    <section id="view-edit" class="view" hidden>
+      <div class="page-heading"><div class="eyebrow">LISTEN. CHANGE. MAKE IT YOURS.</div><h1>让每个声部，找到自己的位置。</h1><p>预设示例，非 AI 创作。将前 4 小节循环试听至 60 秒；简易合成音不能代表完整编曲、真实乐器或歌词可唱性。</p></div>
+      <div class="editor-top"><button id="play" class="primary">▶ 试听示例</button><button id="stop">■ 停止</button><strong id="play-time">00:00 / 01:00</strong><span class="tag">示例 120 BPM · 4/4</span><button id="undo">↶ 撤销</button><button id="redo">↷ 重做</button><button id="midi-demo">导入 MIDI · 演示</button></div>
+      <div class="editor-grid"><article class="card tracks-card"><h2>四个声部</h2><p class="muted">选一个声部，看看它的音符。</p><div id="tracks"></div></article>
+      <article class="card piano-roll"><div class="card-heading"><h2 id="track-title">键盘 · 音符编辑</h2><span class="tag">显示前 4 小节 / 8 秒</span></div><p class="muted">点空白处添加音符；点音符后，可在下方移动位置、调整音高与长度。</p><div class="roll-scroll"><svg id="roll" viewBox="0 0 800 240" role="img" aria-label="音符编辑网格"></svg></div><div class="note-controls"><label>音高<select id="note-pitch"></select></label><label>开始（拍）<input id="note-start" type="number" min="0" max="15.5" step="0.5"></label><label>时长（拍）<input id="note-duration" type="number" min="0.5" max="16" step="0.5"></label><button id="apply-note">应用修改</button><button id="delete-note">删除音符</button></div><p id="note-help" class="muted">选择一个音符即可修改。</p></article></div>
+      <article class="card language-card"><div><h2>用一句话，试试另一种感觉</h2><p class="muted">仅演示整曲修改：将所有声部的音符长度缩短 20%；不解析指令。局部修改留待后续。</p></div><div class="inline-form"><label class="sr-only" for="instruction">整曲修改指令</label><input id="instruction" placeholder="例如：让整首歌更轻快一些"><button id="modify" class="primary">演示整曲修改</button></div></article>
+      <div class="bottom-actions"><button data-view="create">← 返回创作输入</button><button class="primary" data-view="review">去审核这段短曲 →</button></div>
+    </section>
+    <section id="view-review" class="view" hidden>
+      <div class="page-heading"><div class="eyebrow">YOUR EARS HAVE THE FINAL SAY</div><h1>好不好听，由你决定。</h1><p>这里只演示审核与导出流程；示例不具备经过验证的歌词演唱对应。</p></div>
+      <div class="review-grid"><article class="card"><span class="tag" id="revision-label"></span><h2>给这段短曲做一次检查</h2><p class="muted">请回到编曲页试听。本原型的勾选仅记录界面体验，不构成真实音乐验收。</p><div class="checklist"><label><input type="checkbox" class="review-check"> 旋律与整体感觉符合期待</label><label><input type="checkbox" class="review-check"> 四个声部配合自然，没有明显冲突</label><label><input type="checkbox" class="review-check"> 如有歌词，已自行试唱并检查对应关系</label></div><button id="approve" class="primary">标记当前版本审核通过 · 演示</button><p id="approval-status" role="status"></p><button id="full-song" disabled>审核后可查看全曲下一步</button><div class="hint">修改音符、创作输入或重新生成后，需要重新审核。不会自动进入全曲生成。</div></article>
+      <article class="card"><h2>带走你的作品</h2><p class="muted">正式平台将在歌曲目录保存可编辑工程，并支持以下两种导出。</p><button class="export-option" data-export="MIDI"><b>♫ MIDI</b><span>音符、轨道与乐器信息，可继续编辑</span><em>流程演示 ↗</em></button><button class="export-option" data-export="MP3"><b>◉ MP3</b><span>渲染后的声音，可在播放器中收听</span><em>流程演示 ↗</em></button><div class="hint">这两个按钮不产生音乐文件。你可以真实下载本原型的 JSON 状态，作为页面讨论材料。</div><button id="download-json">↓ 下载原型状态 JSON</button></article></div><div class="bottom-actions"><button data-view="edit">← 继续调整</button></div>
+    </section>
+  </main><footer>拾音 SHIYIN <span>把复杂留给工具，把表达留给你。</span><span>独立 HTML 原型 / 非正式产品</span></footer>
+</div>
+<dialog id="modal"><div class="dialog-header"><h2 id="modal-title"></h2><button id="close-modal" aria-label="关闭">×</button></div><div id="modal-body"></div></dialog><div id="toast" role="status"></div>
+<script src="app.js"></script></body></html>

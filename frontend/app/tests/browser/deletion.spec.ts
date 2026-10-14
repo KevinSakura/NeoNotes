@@ -1,0 +1,124 @@
+import { expect, test, type Page } from '@playwright/test';
+
+async function createSong(page: Page, name: string) {
+  await page.getByRole('button', { name: '＋ 新建歌曲', exact: true }).click();
+  await page.getByRole('dialog').getByRole('textbox', { name: '歌曲名称' }).fill(name);
+  await page.getByRole('button', { name: '创建歌曲', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: '主题', exact: true })).toBeVisible();
+  return (await (await page.request.get('/api/projects')).json()).items.find((item: { name: string }) => item.name === name);
+}
+
+test('delete confirmation, playback stop, restart and complete song restore', async ({ page }) => {
+  test.setTimeout(60000);
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  const name = '删除与恢复 A';
+  const item = await createSong(page, name);
+  await page.getByRole('textbox', { name: '主题', exact: true }).fill('保存的主题');
+  await page.getByLabel('上传歌词 TXT', { exact: true }).setInputFiles({ name: 'lyrics.txt', mimeType: 'text/plain', buffer: Buffer.from('第一行\n第二行') });
+  await expect(page.getByTestId('lyric-selection-count')).toContainText('使用 2 行');
+  await page.getByRole('button', { name: /02\s*演奏与编辑/ }).click();
+  await page.getByTestId('roll-scroll').click({ position: { x: 230, y: 50 } });
+  await page.getByRole('spinbutton', { name: '时长（拍）', exact: true }).fill('16');
+  await page.getByRole('button', { name: '应用修改', exact: true }).click();
+  await page.getByRole('button', { name: '保存歌曲', exact: true }).click();
+  await expect(page.getByTestId('save-state')).toContainText('已写入歌曲目录');
+  const saved = await (await page.request.get(`/api/projects/${item.id}`)).json();
+  const history = await (await page.request.get(`/api/projects/${item.id}/history`)).json();
+  await page.getByRole('button', { name: /01\s*收集灵感/ }).click();
+  await page.getByRole('textbox', { name: '主题', exact: true }).fill('未保存草稿');
+  await page.getByRole('button', { name: /02\s*演奏与编辑/ }).click();
+  await page.getByRole('button', { name: '▶ 试听编曲', exact: true }).click();
+  await expect(page.locator('.floating-player')).toBeVisible();
+
+  const remove = page.getByRole('button', { name: `删除歌曲「${name}」（${item.id.slice(0, 8)}）`, exact: true });
+  await remove.click();
+  const dialog = page.getByRole('dialog', { name: '删除这首歌曲？', exact: true });
+  await expect(dialog).toContainText('当前未保存的修改会被放弃');
+  await expect(dialog.getByRole('button', { name: '下载当前草稿', exact: true })).toBeVisible();
+  await expect(page.locator('.floating-player')).toHaveCount(0);
+  await dialog.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('button', { name: /01\s*收集灵感/ }).click();
+  await expect(page.getByRole('textbox', { name: '主题', exact: true })).toHaveValue('未保存草稿');
+  expect((await page.request.get(`/api/projects/${item.id}`)).status()).toBe(200);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await remove.click();
+  await dialog.getByRole('button', { name: '确认删除', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '从一点灵感，开始一首歌。', exact: true })).toBeVisible();
+  await expect(remove).toHaveCount(0);
+  expect((await page.request.get(`/api/projects/${item.id}`)).status()).toBe(404);
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: /删除与恢复 A.*本地歌曲/ })).toHaveCount(0);
+  await page.getByRole('button', { name: '回收站', exact: true }).click();
+  const trash = page.getByRole('dialog', { name: '歌曲回收站', exact: true });
+  await trash.getByRole('button', { name: `恢复歌曲「${name}」（${item.id.slice(0, 8)}）`, exact: true }).click();
+  await expect(trash).toContainText('已恢复，请从歌曲列表打开');
+  await trash.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  await page.getByRole('button', { name: /删除与恢复 A.*本地歌曲/ }).click();
+  await expect(page.getByRole('textbox', { name: '主题', exact: true })).toHaveValue('保存的主题');
+  await expect(page.getByTestId('lyric-selection-count')).toContainText('使用 2 行');
+  expect(await (await page.request.get(`/api/projects/${item.id}`)).json()).toEqual(saved);
+  expect(await (await page.request.get(`/api/projects/${item.id}/history`)).json()).toEqual(history);
+  await page.getByRole('button', { name: /02\s*演奏与编辑/ }).click();
+  await expect(page.getByTestId('roll-note')).toHaveCount(1);
+  await page.getByRole('button', { name: '◷ 历史版本', exact: true }).click();
+  await expect(page.locator('.history-row')).toHaveCount(history.length);
+  await page.getByRole('dialog').getByRole('button', { name: '关闭窗口', exact: true }).click();
+  await page.getByRole('button', { name: /03\s*保存与导出/ }).click();
+  const midiDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: /MIDI.*真实多轨文件/ }).click();
+  expect((await midiDownload).suggestedFilename()).toMatch(/\.mid$/);
+  expect(errors).toEqual([]);
+});
+
+test('deleting or restoring another song keeps the current unsaved draft', async ({ page }) => {
+  await page.goto('/');
+  const first = await createSong(page, '删除其他歌曲 A');
+  const current = await createSong(page, '保留当前草稿 B');
+  await page.getByRole('textbox', { name: '主题', exact: true }).fill('当前未保存的主题');
+  await page.getByRole('button', { name: `删除歌曲「${first.name}」（${first.id.slice(0, 8)}）`, exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '删除这首歌曲？', exact: true });
+  await expect(dialog).not.toContainText('当前未保存的修改会被放弃');
+  await dialog.getByRole('button', { name: '确认删除', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: '主题', exact: true })).toHaveValue('当前未保存的主题');
+  await expect(page.getByTestId('save-state')).toContainText('有未保存的修改');
+  await page.getByRole('button', { name: '回收站', exact: true }).click();
+  const trash = page.getByRole('dialog', { name: '歌曲回收站', exact: true });
+  await trash.getByRole('button', { name: `恢复歌曲「${first.name}」（${first.id.slice(0, 8)}）`, exact: true }).click();
+  await expect(trash).toContainText('已恢复，请从歌曲列表打开');
+  await trash.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: '主题', exact: true })).toHaveValue('当前未保存的主题');
+  await expect(page.getByTestId('save-state')).toContainText('有未保存的修改');
+  await page.getByRole('button', { name: '保存歌曲', exact: true }).click();
+  await expect(page.getByTestId('save-state')).toContainText('已写入歌曲目录');
+  expect((await (await page.request.get(`/api/projects/${current.id}`)).json()).revision.state.inputs.theme).toBe('当前未保存的主题');
+  expect((await page.request.get(`/api/projects/${first.id}`)).status()).toBe(200);
+});
+
+test('a changed revision rejects stale deletion and can be reopened for a fresh confirmation', async ({ page }) => {
+  await page.goto('/');
+  const item = await createSong(page, '跨页面删除冲突');
+  await page.getByRole('button', { name: `删除歌曲「${item.name}」（${item.id.slice(0, 8)}）`, exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '删除这首歌曲？', exact: true });
+  const saved = await (await page.request.get(`/api/projects/${item.id}`)).json();
+  const token = (await (await page.request.get('/api/session')).json()).token;
+  saved.revision.state.inputs.theme = '另一页面的新版本';
+  const update = await page.request.put(`/api/projects/${item.id}`, { headers: { 'X-Session-Token': token }, data: { base_revision: saved.current_revision, label: '另一页面保存', state: saved.revision.state } });
+  expect(update.status()).toBe(200);
+  await dialog.getByRole('button', { name: '确认删除', exact: true }).click();
+  await expect(dialog).toContainText('另一页面已修改这首歌');
+  expect((await page.request.get(`/api/projects/${item.id}`)).status()).toBe(200);
+  await dialog.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('button', { name: /跨页面删除冲突.*本地歌曲/ }).click();
+  await expect(page.getByRole('textbox', { name: '主题', exact: true })).toHaveValue('另一页面的新版本');
+  await page.getByRole('button', { name: `删除歌曲「${item.name}」（${item.id.slice(0, 8)}）`, exact: true }).click();
+  await dialog.getByRole('button', { name: '确认删除', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect((await page.request.get(`/api/projects/${item.id}`)).status()).toBe(404);
+  expect((await (await page.request.get('/api/trash')).json()).items.some((song: { id: string }) => song.id === item.id)).toBe(true);
+});

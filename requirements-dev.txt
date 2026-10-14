@@ -1,0 +1,13 @@
+# Python 3.12 / Conda piano：开发依赖，包含运行依赖。
+# 安装：conda run -n piano python -m pip install -r requirements-dev.txt
+# 2026-10-05 第三阶段继续使用已安装版本；传递依赖未全量锁定。
+-r requirements.txt
+
+# 后端单元测试、接口与文件处理测试
+pytest==9.1.1
+
+# 异步接口测试预留；当前模型后台队列和HTTPX通过离线测试验证
+pytest-asyncio==1.4.0
+
+# Python 静态检查与格式化
+ruff==0.16.10

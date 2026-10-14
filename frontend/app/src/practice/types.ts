@@ -1,0 +1,10 @@
+export type Event = { kind: string; at: number; [key: string]: any };
+export type Segment = { id: string; source_id: string; measure: number; staff: number; voice: number; offset: number; pitch: number; tick: number; duration: number; tie_start: boolean; tie_stop: boolean };
+export type Notation = { start_tick: number; end_tick: number; segments: Segment[]; measures: any[]; notes: any[]; tempos: {tick: number; tempo: number}[]; clef: string; slurs: string[][]; [key: string]: any };
+export type Targets = { attacks: {id: string; tick: number; notes: {id: string; pitch: number; end_tick: number; notation_ids: string[]; tie_chain_id: string | null}[]; reachability: {level: string; reason: string}}[]; silences: {start_tick: number; end_tick: number}[]; start_tick: number; end_tick: number; tempos: {tick: number; tempo: number}[]; measures: any[]; slurs: string[][] };
+export type Builtin = {catalog_id:string;catalog_version:number;unit_id:string;unit_title:string;exercise_id:string;exercise_title:string;artifact_hash:string;goal:string;instructions:string[];bars:number;bpm:number;start_tick:number};
+export type UnitCatalog = {id:string;version:number;author:string;units:{id:string;title:string;description:string;exercises:{exercise_id:string;exercise_title:string;goal:string;instructions:string[];bars:number;bpm:number;artifact_hash:string}[]}[]};
+export type Material = { source: {id: string; name: string; association?: {song_id: string; revision_id: string};builtin?:Builtin}; parsed: any; revisions: any[] };
+export type Prepared = {ready: boolean; reason?: string; preview_hash: string; notation: Notation; targets: Targets; musicxml: string; voices: any[]; report: any;builtin?:Builtin};
+export type Revision = {revision: {id: string; material_id: string; settings: any; targets_hash: string; report: any;builtin?:Builtin}; notation: Notation; targets: Targets; musicxml: string};
+export type Session = {snapshot: {id: string; material_id: string; revision_id: string; targets: Targets; rules: any; [key: string]: any}; events: Event[]; last_seq: number; status: string; result: any};

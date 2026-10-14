@@ -1,0 +1,106 @@
+import { expect, test, type Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+
+async function start(page: Page, name: string) {
+  await page.goto('/');
+  await page.getByRole('button', { name: '＋ 新建歌曲', exact: true }).click();
+  await page.getByRole('textbox', { name: '歌曲名称', exact: true }).fill(name);
+  await page.getByRole('button', { name: '创建歌曲', exact: true }).click();
+  await page.getByRole('textbox', { name: '主题', exact: true }).fill('从熟悉的旋律走向新的旅程');
+  await page.getByRole('textbox', { name: '情感与希望的音乐感觉', exact: true }).fill('明亮而温暖的流行风格');
+  await page.getByRole('button', { name: '模拟生成 60 秒候选', exact: true }).click();
+  await expect(page.getByTestId('candidate-preview')).toContainText('60.000 秒');
+  await page.getByRole('button', { name: '采用到编辑器', exact: true }).click();
+  await page.getByRole('button', { name: '去保存与导出 →', exact: true }).click();
+  await expect(page.getByRole('button', { name: '模拟生成整曲候选', exact: true })).toBeDisabled();
+  for (const label of ['已试听旋律与段落发展', '已试听四声部配合与音色', '已核对主题、曲风及原旋律约束']) {
+    await page.getByRole('checkbox', { name: label, exact: true }).check();
+  }
+  await page.getByRole('textbox', { name: '审核备注', exact: true }).fill('模拟浏览器检查；不代表音乐质量或人工试唱验收。');
+  await page.getByRole('button', { name: '记录审核通过', exact: true }).click();
+  await expect(page.getByRole('button', { name: '模拟生成整曲候选', exact: true })).toBeEnabled();
+  await expect(page.getByTestId('ai-full').getByTestId('candidate-preview')).toHaveCount(0);
+}
+
+test('explicit 195-second instrumental full song, real MIDI and audio, reopen and undo', async ({ page }, testInfo) => {
+  test.setTimeout(90000);
+  const errors: string[] = [], hosts = new Set<string>();
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('request', request => hosts.add(new URL(request.url()).hostname));
+  const name = '第六阶段无歌词整曲';
+  await start(page, name);
+  await expect(page.getByTestId('full-song-spec')).toContainText('3分15秒');
+  await expect(page.getByTestId('full-song-spec')).toContainText('32768');
+  await page.getByRole('button', { name: '模拟生成整曲候选', exact: true }).click();
+  const preview = page.getByTestId('ai-full').getByTestId('candidate-preview');
+  await expect(preview).toContainText('195.000 秒');
+  await expect(preview.getByTestId('full-song-source')).toContainText('引用审核短曲');
+  await preview.getByRole('button', { name: '▶ 试听候选', exact: true }).click();
+  await expect.poll(async () => Number(await page.getByTestId('playback-audio-level').getAttribute('value'))).toBeGreaterThan(.0001);
+  await page.locator('.floating-player').getByRole('button', { name: '■ 停止', exact: true }).click();
+  const midiEvent = page.waitForEvent('download');
+  await preview.getByRole('link', { name: '下载候选 MIDI', exact: true }).click();
+  const midi = await midiEvent;
+  expect((await readFile((await midi.path())!)).subarray(0, 4).toString()).toBe('MThd');
+  await preview.getByRole('button', { name: '采用到编辑器', exact: true }).click();
+  await page.getByRole('button', { name: '去保存与导出 →', exact: true }).click();
+  await expect(page.locator('.project-details')).toContainText('03:15');
+  await expect(page.getByTestId('review-result')).toHaveCount(0);
+  await expect(page.getByTestId('assessment-report')).toContainText('195.000 秒');
+  await expect(page.getByRole('button', { name: '模拟生成整曲候选', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: '生成 WAV 与 MP3', exact: true }).click();
+  await expect(page.getByTestId('render-status').first()).toContainText('已完成', { timeout: 45000 });
+  const audio = page.getByLabel('渲染后的 WAV 试听');
+  await expect.poll(() => audio.evaluate(element => (element as HTMLAudioElement).readyState)).toBeGreaterThanOrEqual(1);
+  expect(await audio.evaluate(element => (element as HTMLAudioElement).duration)).toBeCloseTo(198, 2);
+  const mp3Event = page.waitForEvent('download');
+  await page.getByRole('link', { name: '下载 MP3', exact: true }).first().click();
+  const mp3 = await mp3Event;
+  expect((await readFile((await mp3.path())!)).subarray(0, 3).toString()).toBe('ID3');
+  await page.screenshot({ path: testInfo.outputPath('instrumental-desktop.png'), fullPage: true });
+  await page.reload();
+  await page.locator('.project-item').filter({ hasText: name }).click();
+  await page.getByRole('button', { name: '03 保存与导出', exact: true }).click();
+  await expect(page.locator('.project-details')).toContainText('03:15');
+  await expect(page.getByTestId('render-status')).toContainText('已完成');
+  await page.getByRole('button', { name: '02 演奏与编辑', exact: true }).click();
+  await page.getByRole('button', { name: '↶ 撤销', exact: true }).click();
+  await page.getByRole('button', { name: '去保存与导出 →', exact: true }).click();
+  await expect(page.locator('.project-details')).toContainText('01:00');
+  await expect(page.getByTestId('review-result')).toContainText('模拟审核通过');
+  expect([...hosts]).toEqual(['127.0.0.1']);
+  expect(errors).toEqual([]);
+});
+
+test('full TXT composes directly without a short review gate, every lyric line follows melody, mobile', async ({ page }, testInfo) => {
+  test.setTimeout(60000);
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const lyrics = '迎着微风出发\n昨日轻轻放下\n脚步迎向朝阳\n让每一段旅程都有回答';
+  await page.goto('/');
+  await page.getByRole('button', { name: '＋ 新建歌曲', exact: true }).click();
+  await page.getByRole('textbox', { name: '歌曲名称', exact: true }).fill('全文歌词直接谱曲');
+  await page.getByRole('button', { name: '创建歌曲', exact: true }).click();
+  await page.getByLabel('上传歌词 TXT', { exact: true }).setInputFiles({ name: 'full.txt', mimeType: 'text/plain', buffer: Buffer.from(lyrics) });
+  await expect(page.getByTestId('lyric-composition-policy')).toContainText('全文 4 行');
+  await expect(page.getByRole('button', { name: '模拟生成 60 秒候选', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: '模拟生成全文歌词候选', exact: true }).click();
+  const preview = page.getByTestId('ai-generate').getByTestId('candidate-preview');
+  await expect(preview).toContainText('27.500 秒');
+  await preview.getByText('查看候选的歌词与音符对应', { exact: true }).click();
+  await expect(preview.locator('.aligned-line')).toHaveCount(4);
+  await preview.getByRole('button', { name: '听第 1 行歌词', exact: true }).click();
+  await expect.poll(async () => Number(await page.getByTestId('playback-audio-level').getAttribute('value'))).toBeGreaterThan(.0001);
+  await expect(preview.locator('[data-testid="lyric-unit"][data-active="true"]')).not.toHaveCount(0);
+  await preview.getByRole('button', { name: '停止试唱试听', exact: true }).click();
+  await preview.getByRole('button', { name: '采用到编辑器', exact: true }).click();
+  await page.getByRole('button', { name: '去保存与导出 →', exact: true }).click();
+  await expect(page.locator('.project-details')).toContainText('4 行歌词');
+  await expect(page.getByTestId('ai-full')).toHaveCount(0);
+  await expect(page.getByTestId('assessment-report')).toContainText('来源完成');
+  await expect(page.getByTestId('review-panel').locator('.aligned-line')).toHaveCount(4);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('lyrics-mobile.png'), fullPage: true });
+  expect(errors).toEqual([]);
+});
