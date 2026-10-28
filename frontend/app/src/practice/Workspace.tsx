@@ -4,6 +4,7 @@ import { AudioEngine } from '../audio';
 import { noteName } from '../music.mjs';
 import { secondsAt } from './judge.mjs';
 import ScoreView from './ScoreView';
+import KeyGuide from './KeyGuide';
 import SessionPlayer from './SessionPlayer';
 import UnitLibrary from './UnitLibrary';
 import type { Material, Prepared, Revision, Session, UnitCatalog } from './types';
@@ -79,7 +80,7 @@ export default function Workspace({active}: {active: boolean}) {
       {preview && !preview.ready && <p role="alert">{preview.reason}</p>}
       {voiceOptions.length>0 && <fieldset><legend>推断声部（未选时预览全部）</legend>{voiceOptions.map(v => <label key={v.voice}><input type="checkbox" checked={settings.voices.includes(v.voice)} onChange={e => change({voices: e.target.checked ? [...settings.voices, v.voice] : settings.voices.filter(x => x !== v.voice)})} />声部{v.voice} · {v.note_count}音</label>)}</fieldset>}
     </section>}
-    {score && <section className="practice-card"><h2>确认整理后的五线谱</h2><ScoreView xml={score.musicxml} notation={score.notation} active={selected} correct={correct} onSelect={id => setSelected([id])} onReady={setMapped} />
+    {score && <section className="practice-card"><h2>确认整理后的五线谱</h2><div className="practice-score-with-guide"><div className="practice-score-column"><ScoreView xml={score.musicxml} notation={score.notation} active={selected} correct={correct} onSelect={id => setSelected([id])} onReady={setMapped} /></div><KeyGuide /><div className="practice-score-details">
       {builtin&&<div className="practice-unit-instructions" data-testid="active-unit"><h3>{builtin.unit_title} · {builtin.exercise_title}</h3><p>{builtin.goal}</p><ul>{builtin.instructions.map((tip,i)=><li key={i}>{tip}</li>)}</ul><p>这条固定谱已安排好音高与节奏，无需选择轨道或量化；核对谱面后确认即可练习。</p></div>}
       <p>实际片段：原小节{score.notation.measures[0].source_number}–{score.notation.measures.at(-1).source_number}；{score.targets.attacks.length}个起音组。延音线只起音一次，圆滑线中的不同音仍分别起音。</p>
       {preview?.report && <p>{preview.report.quantized_notes}音量化，最大偏移{preview.report.max_shift_ms.toFixed(1)}ms；排除{preview.report.excluded_notes}个未选声部音符。</p>}
@@ -89,6 +90,7 @@ export default function Workspace({active}: {active: boolean}) {
       {preview?.report?.blocked_targets.length > 0 && <p role="alert">有当前键盘不能完成的目标，请重新选段/声部或明确移调。原音符仍保留。</p>}
       {preview && !revision && <button className="primary" disabled={busy || !mapped} onClick={() => void action(async () => {const r=await request<Revision>(`/practice/materials/${material!.source.id}/revisions`, {method:'POST', body: JSON.stringify({settings, preview_hash: preview.preview_hash})});setRevision(r);setMaterial(await request<Material>('/practice/materials/'+material!.source.id));})}>确认五线谱并保存练习版本</button>}
       {revision && <p>整理版本已独立保存。</p>}
+    </div></div>
     </section>}
     {settings.slurs.length>0&&<section className="practice-card"><h2>手动圆滑线</h2>{settings.slurs.map((pair,i)=><button key={i} onClick={()=>change({slurs:settings.slurs.filter((_,j)=>j!==i)})}>删除圆滑线{i+1}</button>)}</section>}
     {revision&&mapped&&<SessionPlayer key={revision.revision.id+':'+(incoming?.snapshot.id??'new')} revision={revision} active={active} incoming={incoming} onSaved={()=>void refreshRecords().catch(e=>setError(String(e)))} onHighlights={(ids,done)=>{setSelected(ids);setCorrect(done);}} />}

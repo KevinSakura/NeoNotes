@@ -145,6 +145,8 @@ conda run -n piano python scripts/check_vocal_resources.py
 
 ### 练习键位
 
+五线谱右侧提供按键提醒，列出白键、黑键与 Shift / 空格的八度规则，方便看谱时对照；窄屏时提醒放在谱面下方。练习区域继续显示当前基础八度、收到的按键及发声音高。
+
 默认基础八度为 4：
 
 | 白键 | s | d | f | g | h | j | k | l |
@@ -277,6 +279,7 @@ MIDI 支持 Type 0/1 的 PPQ 时间基准，单文件约 2 MiB、单曲最多 50
 
 ## 更多文档
 
+- [v3 — 乐曲键盘扒谱：技术选型与业务设计（待实施）](docs/v3-keyboard-transcription-plan.md)
 - [整体功能设计](docs/project-plan.md)与[技术架构](docs/technical-stack.md)
 - [识谱练习：设计与判定规则](docs/practice-design-20261013.md) · [使用细节与支持范围](docs/practice-delivery-20261013.md)
 - [本地基础单元与练习谱](docs/practice-units-delivery-20261014.md)
