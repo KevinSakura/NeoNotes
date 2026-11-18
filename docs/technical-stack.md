@@ -1,5 +1,7 @@
 # 技术栈与项目架构建议
 
+2026-10-28扒谱已接入：创作/练习/扒谱三个独立入口，`TranscriptionManager`与`data/.transcriptions`独立保存。Transkun2.0.1官方源码/权重、Demucs4.0.1六声部piano、PyTorch2.8 CPU作为可选本地推理资源；固定来源与哈希，显式准备，不自动下载。复用Mido、MusicXML生成和OSMD，独立全音域记谱，不受练习键位限制。原秒级MIDI与量化修订分离，混音有已知串音、保留试验标识；跨模块复制未开放。安装差异、限制和真实证据见[扒谱交付](transcription-delivery-20261028.md)。
+
 2026-10-14本地练习单元：`backend/resources/practice-units-v1.json`保存原创教材，`practice_units.py`确定性编译MIDI及记谱/目标；默认参数、实际谱与教材身份哈希一致才标标准单元。复用现有Mido、OSMD、PracticeStore与两轮判定，不增加依赖、服务或模型调用。选择后保存独立本地材料，重复选择复用同内容版本，教材变化建立新副本并保留旧记录；见[单元交付](practice-units-delivery-20261014.md)。
 
 2026-10-13练习实现：React独立工作台，锁定OSMD 2.1.3/SVG与MusicXML；用语义对象的原小节/谱表/声部/时间/音高对应自有segment_id，并按和弦音头索引定位，不假设XML ID进入SVG。独立Mido解析、记谱整理、目标及PracticeStore已接入 `data/.practice/`，原歌曲Score保持原合同。输入纯状态机、AudioContext调度的预备/节拍、performance原事件评分、Python/JS同向量重放、IndexedDB待发送队列及幂等批次已实现。OSMD采用BSD-3-Clause，[完整许可](licenses/osmd-BSD-3-Clause.txt)随源码保留；新增76个前端依赖项，Python无新增依赖。练习工作台懒加载，OSMD导致约1.36MB压缩前分包，低性能设备体验需实测。实际启动、边界及证据见[交付](practice-delivery-20261013.md)。

@@ -31,6 +31,8 @@ from .practice_store import PracticeStore
 from .render import RenderManager, RenderRequest
 from .resources import AudioError, AudioPaths, SoundFontResource
 from .storage import ProjectStore, StorageError
+from .transcriptions import TranscriptionManager
+from .transcriptions import routes as transcription_routes
 from .vocal_resources import VocalResource
 from .vocal_score import VocalRequest, VocalSettingsRequest
 from .vocals import VocalManager
@@ -63,10 +65,13 @@ def create_app(
     generator = GenerationManager(store, resource, settings_source, adapter_factory)
     vocals = VocalManager(store, resource, vocal_resource)
     practice = PracticeStore(store.root / '.practice')
+    transcriptions = TranscriptionManager(store.root / '.transcriptions', resource.paths)
 
     @asynccontextmanager
     async def lifespan(app):
+        transcriptions.recover()
         yield
+        transcriptions.close()
         vocals.close()
         renderer.close()
         generator.close()
@@ -86,6 +91,8 @@ def create_app(
     app.state.vocals = vocals
     app.state.practice = practice
     app.include_router(practice_routes(practice, store))
+    app.state.transcriptions = transcriptions
+    app.include_router(transcription_routes(transcriptions))
     app.add_middleware(
         TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"]
     )
@@ -104,7 +111,8 @@ def create_app(
             )
         length = request.headers.get("content-length", "0")
         try:
-            if int(length) > 8 * 1024 * 1024:
+            limit = 101 * 1024 * 1024 if request.url.path == '/api/transcriptions' else 8 * 1024 * 1024
+            if int(length) > limit:
                 return JSONResponse({"detail": "请求文件过大。"}, status_code=413)
         except ValueError:
             return JSONResponse({"detail": "请求长度无效。"}, status_code=400)

@@ -17,6 +17,36 @@ if __name__ == "__main__":
     data_dir = ROOT / ".cache" / "e2e-runs" / run_id / "data"
     assert data_dir.resolve().is_relative_to((ROOT / ".cache" / "e2e-runs").resolve())
     app = create_app(data_dir, model_settings=ModelSettings(mock=True))
+
+    # Only this isolated server uses fake transcription. It never invokes models.
+    def mock_transcription(operation, source, output, cancel):
+        import shutil
+        import wave
+
+        from backend.app.transcription_score import TranscriptionNote, midi_bytes
+
+        if operation == "separate":
+            shutil.copyfile(source, output)
+        else:
+            with wave.open(str(source), "rb") as stream:
+                duration = stream.getnframes() / stream.getframerate()
+            notes = [
+                TranscriptionNote(pitch=60, onset=0.25, offset=0.75),
+                TranscriptionNote(pitch=64, onset=0.25, offset=0.75),
+                TranscriptionNote(pitch=60, onset=1, offset=1.5),
+            ]
+            # The >3s browser fixture includes one crossing and one padding-only
+            # note, representing actual model edge behavior without real inference.
+            if 3 <= duration <= 10:
+                notes.extend(
+                    [
+                        TranscriptionNote(pitch=81, onset=duration - 0.27, offset=duration + 0.38),
+                        TranscriptionNote(pitch=83, onset=duration + 0.2, offset=duration + 0.4),
+                    ]
+                )
+            output.write_bytes(midi_bytes(notes))
+
+    app.state.transcriptions.worker = mock_transcription
     # Test-only fault injection into the deterministic mock service, never production.
     phrase_controls = {}
     original_phrase_call = app.state.generator.phrase_runner._call
@@ -24,14 +54,18 @@ if __name__ == "__main__":
     def controlled_phrase_call(project_id, job_id, context, settings, stage, raw_mock, validate):
         if not settings.mock:
             raise RuntimeError("Browser tests require an injected mock configuration.")
-        if stage.startswith("block-") and context.get("block_index") == phrase_controls.get(project_id):
+        if stage.startswith("block-") and context.get("block_index") == phrase_controls.get(
+            project_id
+        ):
             from backend.app.model_settings import ModelError
 
             def failure():
                 raise ModelError("隔离模拟服务：这个分块失败。", code="mock_block_failure")
 
             raw_mock = failure
-        return original_phrase_call(project_id, job_id, context, settings, stage, raw_mock, validate)
+        return original_phrase_call(
+            project_id, job_id, context, settings, stage, raw_mock, validate
+        )
 
     app.state.generator.phrase_runner._call = controlled_phrase_call
 

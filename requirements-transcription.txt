@@ -1,0 +1,14 @@
+# Optional local CPU transcription; Python 3.12 / Conda piano.
+# Install torch/torchaudio from https://download.pytorch.org/whl/cpu first.
+torch==2.8.0
+torchaudio==2.8.0
+# Official transkun 2.0.1 wheel extracted by explicit preparation script.
+# Avoid its unused training dependency ncls (no Windows wheel/C++ compiler).
+pretty_midi==0.2.11.post0
+numpy==2.5.4
+scipy==1.18.1
+mir_eval==0.8.2
+moduleconf==0.1.4
+soxr==1.1.0
+demucs==4.0.1
+soundfile==0.13.1

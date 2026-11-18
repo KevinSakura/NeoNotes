@@ -35,7 +35,7 @@ export default function ScoreView({xml, notation, active = [], correct = [], onS
         osmd.render(); mapping.current.clear();
         const table = new Map<string, string[]>();
         for (const s of notation.segments) {
-          const key = `${s.measure}:${s.staff}:${s.voice + (s.staff - 1) * 2}:${s.offset}:${s.pitch}`;
+          const key = `${s.measure}:${s.staff}:${s.voice + (s.staff - 1) * (notation.voice_stride ?? 2)}:${s.offset}:${s.pitch}`;
           table.set(key, [...(table.get(key) ?? []), s.id]);
         }
         for (const [mi, staves] of osmd.GraphicSheet.MeasureList.entries()) {

@@ -547,6 +547,7 @@ def musicxml(notation):
     xml(xml(plist, "score-part", id="P1"), "part-name", "NeoNote练习钢琴")
     part = xml(root, "part", id="P1")
     staff_count = 2 if notation["clef"] == "grand" else 1
+    voice_stride = notation.get("voice_stride", 2)
     previous_key, previous_meter = None, None
     for m in notation["measures"]:
         bar = xml(
@@ -618,7 +619,7 @@ def musicxml(notation):
                     written.append((node, cursor, duration, kind, tuplet))
                     xml(node, "rest")
                     xml(node, "duration", duration)
-                    xml(node, "voice", voice + (staff - 1) * 2)
+                    xml(node, "voice", voice + (staff - 1) * voice_stride)
                     xml(node, "type", kind)
                     for _ in range(dots):
                         xml(node, "dot")
@@ -646,7 +647,7 @@ def musicxml(notation):
                 for side in ("stop", "start"):
                     if s["tie_" + side]:
                         xml(node, "tie", type=side)
-                xml(node, "voice", voice + (staff - 1) * 2)
+                xml(node, "voice", voice + (staff - 1) * voice_stride)
                 xml(node, "type", s["type"])
                 for _ in range(s["dots"]):
                     xml(node, "dot")
