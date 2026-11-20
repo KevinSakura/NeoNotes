@@ -142,7 +142,9 @@ export default function VocalPanel({ project, dirty, busy, prepare, run, stopOth
   return <article className="card vocal-panel" aria-label="人声演唱">
     <div className="card-heading"><h2>让歌手唱出这首歌</h2><span className="tag">本地演唱 · 非商业演示</span></div>
     <p className="muted">使用已保存的全文歌词、旋律与节奏，不重新作曲。发音和自然度请亲自试听确认。</p>
-    <label className="field">歌手<select aria-label="演唱歌手" value={form.singer} disabled={busy || !!pending} onChange={event => setForm({ ...form, singer: event.target.value })}><option value="qixuan-2.7.0">绮萱 Qixuan v2.7.0 · 普通话独唱</option></select></label>
+    <div className="vocal-singer"><span className="vocal-avatar" aria-hidden="true">绮</span>
+      <label className="field">歌手<select aria-label="演唱歌手" value={form.singer} disabled={busy || !!pending} onChange={event => setForm({ ...form, singer: event.target.value })}><option value="qixuan-2.7.0">绮萱 Qixuan v2.7.0 · 普通话独唱</option></select></label>
+    </div>
     <details className="vocal-details"><summary>运行设备与资源</summary>
       <label className="field">运行方式<select aria-label="演唱运行方式" disabled={busy || !!pending} value={form.runner} onChange={event => { stop(); setForm({ ...form, runner: event.target.value as Settings['runner'] }); }}><option value="DirectML">显卡（DirectML）</option><option value="CPU">CPU（兼容方式）</option></select></label>
       {form.runner === 'DirectML' && <label className="field">显卡<select aria-label="演唱显卡" value={form.gpu} disabled={busy || !!pending} onChange={event => setForm({ ...form, gpu: Number(event.target.value) })}>{resource?.singers[0]?.devices.map(device => <option key={device.id} value={device.id}>{device.name}</option>)}</select></label>}

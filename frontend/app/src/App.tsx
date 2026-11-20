@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { download, rawRequest, request } from './api';
 import { AudioEngine } from './audio';
@@ -9,6 +9,8 @@ import AICreation from './AICreation';
 import ReviewPanel from './ReviewPanel';
 import LyricRepair from './LyricRepair';
 import LyricGroupEditor from './LyricGroupEditor';
+import { HomeView, Icon, RecordingTimeline, StudioHero, TopBar } from './StudioDesign';
+import type { WorkspaceMode } from './StudioDesign';
 import { draftHash } from './draft-hash.mjs';
 import type { GroupImpact, GroupParameters } from './types';
 import { lyricPractice, lyricGroupPractice } from './lyric-practice.mjs';
@@ -17,7 +19,6 @@ import { DRUM_PITCHES, KEY_CODES, fullLyricLines, lyricSelection, noteName, play
 import type { Assessment, Family, GenerationJob, HistoryItem, Inputs, Note, PracticePlayer, Project, ProjectItem, RecordedNote, Score, SongState, Track } from './types';
 
 const familyNames: Record<Family, string> = { keyboard: '键盘', drums: '鼓', guitar: '吉他', bass: '贝斯', other: '其他乐器' };
-const familyColors: Record<Family, string> = { keyboard: '#7ba575', drums: '#c68d60', guitar: '#779cb7', bass: '#a28ab5', other: '#759f9b' };
 const programs: Record<Family, [number, string][]> = {
   keyboard: [[0, '原声钢琴'], [4, '电钢琴'], [16, '风琴']], drums: [[0, 'GM 鼓组']],
   guitar: [[24, '尼龙弦吉他'], [25, '钢弦吉他'], [27, '电吉他']],
@@ -34,23 +35,27 @@ const clock = (seconds: number) => {
 function Modal({ title, children, close }: { title: string; children: ReactNode; close: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { ref.current?.showModal(); }, []);
-  return <dialog ref={ref} aria-label={title} onCancel={event => { event.preventDefault(); close(); }}>
+  return <dialog className="studio-dialog" ref={ref} aria-label={title} onCancel={event => { event.preventDefault(); close(); }}>
     <div className="modal-header"><h2>{title}</h2><button aria-label="关闭窗口" onClick={close}>×</button></div>{children}
   </dialog>;
 }
 
-export default function App({active = true}: {active?: boolean}) {
+export default function App({ active, home, chooseWorkspace }: {
+  active: boolean; home: boolean; chooseWorkspace: (mode: WorkspaceMode) => void;
+}) {
   const [items, setItems] = useState<ProjectItem[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [draft, setDraft] = useState<SongState | null>(null);
   const draftRef = useRef<SongState | null>(null);
   const projectRef = useRef<Project | null>(null);
   const [view, setView] = useState<'inputs' | 'edit' | 'files'>('inputs');
+  useLayoutEffect(() => { if (active) window.scrollTo(0, 0); }, [active, view]);
   const [trackId, setTrackId] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [message, setMessage] = useState('');
+  const [modelMode, setModelMode] = useState<'mock' | 'real' | 'unavailable' | null>(null);
   const [reviewSignal, setReviewSignal] = useState(0);
   const [audioStatus, setAudioStatus] = useState('点击琴键或开始录制，加载本地音色');
   const [audioLevel, setAudioLevel] = useState(0);
@@ -403,40 +408,56 @@ export default function App({active = true}: {active?: boolean}) {
   const totalNotes = draft?.score.tracks.reduce((sum, track) => sum + track.notes.length, 0) ?? 0;
   const duration = draft ? secondsAt(draft.score, draft.score.end_tick) : 0;
 
-  return <div className="app-shell">
-    <aside className="sidebar">
-      <a className="brand" href="#" onClick={event => event.preventDefault()}><span className="brand-symbol">♮</span><span>NeoNote<small>新的乐章 · LOCAL STUDIO</small></span></a>
+  function openSong(item: ProjectItem) {
+    guard(async () => { accept(await request<Project>(`/projects/${item.id}`)); });
+  }
+
+  return <>
+    {home && <HomeView items={items} busy={busy} choose={chooseWorkspace} openSong={item => { chooseWorkspace('creation'); openSong(item); }} />}
+    <div className="app-shell" hidden={!active} inert={!active}>
+    <TopBar title={project?.name ?? '创作工作台'}>
+      {project && <div className="header-actions">
+        {modelMode && <span className={`tag ${modelMode === 'real' ? 'accent' : 'warn'}`}><span className="status-dot" />{modelMode === 'real' ? 'DeepSeek · 真实模式' : modelMode === 'mock' ? 'AI 模拟模式' : '模型不可用'}</span>}
+        <span className={`save-state ${dirty || recording ? 'unsaved' : ''}`} data-testid="save-state"><span className="status-dot" aria-hidden="true" />{recording ? '正在录制，请完成后保存' : dirty ? '有未保存的修改' : `已写入歌曲目录 · v${project.revision.number}`}</span>
+        <button className="btn sm ghost" disabled={busy || recording} onClick={() => void run(async () => { stop(); setHistory(await request<HistoryItem[]>(`/projects/${project.id}/history`)); setModal('history'); })}>◷ 历史版本</button>
+        <button className="btn sm primary" disabled={busy || (!dirty && !recording)} onClick={() => void run(async () => { await saveCurrent(); setMessage('歌曲已保存到本地目录。'); })}>保存歌曲</button>
+      </div>}
+    </TopBar>
+    <aside className="sidebar glass">
       <button className="primary new-song" disabled={busy} onClick={() => { setNewName(''); setModal('new'); }}>＋ 新建歌曲</button>
       <div className="sidebar-label">我的歌曲 <span>{items.length}</span></div>
       <nav className="project-list" aria-label="歌曲列表">{items.map(item => <div className="project-row" key={item.id}><button disabled={busy}
-        className={`project-item ${project?.id === item.id ? 'active' : ''}`} onClick={() => guard(async () => { accept(await request<Project>(`/projects/${item.id}`)); })}>
-        <span>♫　{item.name}</span><small>本地歌曲 · {item.id.slice(0, 8)}</small>
-      </button><button className="delete-song" disabled={busy} aria-label={`删除歌曲「${item.name}」（${item.id.slice(0, 8)}）`} title="删除歌曲" onClick={() => askDelete(item)}>删除</button></div>)}</nav>
+        className={`project-item ${project?.id === item.id ? 'active' : ''}`} onClick={() => openSong(item)}>
+        <span className="project-art"><Icon name="creation" /></span><span className="project-name"><b>{item.name}</b><small>本地歌曲 · {item.id.slice(0, 8)}</small></span>
+      </button><button className="delete-song" disabled={busy} aria-label={`删除歌曲「${item.name}」（${item.id.slice(0, 8)}）`} title="删除歌曲" onClick={() => askDelete(item)}><Icon name="trash" /></button></div>)}</nav>
       {!items.length && <p className="muted">新建一首歌，让灵感有个落脚的地方。</p>}
-      <button className="sidebar-trash" disabled={busy} onClick={() => void run(async () => { stop(); await listTrash(); setModal('trash'); })}>回收站</button>
-      <div className="sidebar-bottom"><span className="online-dot" /> 本地编曲工作台<p>歌曲与音频保存到 data/<br />模型模式与每次请求在生成页确认</p></div>
+      <div className="sidebar-bottom"><div className="sidebar-footer">
+        <button className="btn sm ghost sidebar-trash" disabled={busy} onClick={() => void run(async () => { stop(); await listTrash(); setModal('trash'); })}><Icon name="trash" />回收站</button>
+        <code title="歌曲与音频保存到 data/">data/</code>
+      </div><p>模型模式与每次请求在生成页确认。</p></div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><div className="breadcrumb">我的歌曲 <span>/</span> <strong>{project?.name ?? '开始你的第一首歌'}</strong></div>
-        {project && <div className="header-actions"><span className={`save-state ${dirty ? 'unsaved' : ''}`} data-testid="save-state">{recording ? '正在录制，请完成后保存' : dirty ? '有未保存的修改' : `已写入歌曲目录 · v${project.revision.number}`}</span>
-          <button disabled={busy || recording} onClick={() => void run(async () => { stop(); setHistory(await request<HistoryItem[]>(`/projects/${project.id}/history`)); setModal('history'); })}>◷ 历史版本</button>
-          <button className="primary" disabled={busy || (!dirty && !recording)} onClick={() => void run(async () => { await saveCurrent(); setMessage('歌曲已保存到本地目录。'); })}>保存歌曲</button></div>}
-      </header>
-      <div className="stage-banner"><span>歌词谱曲更新</span>有歌词时一次覆盖全文，时长按歌词安排；无歌词先生成60秒短曲。候选须明确采用、试听与审核。</div>
       {message && <div className="notice" role="alert"><span>{message}</span><button aria-label="关闭提示" onClick={() => setMessage('')}>×</button></div>}
-      <main>
-        {!draft || !project ? <section className="welcome"><span className="eyebrow">MAKE ROOM FOR YOUR MELODY</span><h1>从一点灵感，开始一首歌。</h1><p>弹几个音，写一段话，或带上你的歌词。<br />这一阶段，你可以把它们存好，编辑并导出真正的 MIDI。</p><button className="primary" disabled={busy} onClick={() => setModal('new')}>＋ 新建第一首歌</button><div className="welcome-notes"><span>⌨　电脑键盘试弹</span><span>♫　音符编辑与回放</span><span>▣　每首歌独立保存</span></div></section> : <>
-          <nav className="steps" aria-label="工作步骤">{([['inputs', '01', '收集灵感'], ['edit', '02', '演奏与编辑'], ['files', '03', '保存与导出']] as const).map(([name, number, label]) => <button key={name} className={view === name ? 'active' : ''} disabled={busy} onClick={() => changeView(name)}><b>{number}</b>{label}</button>)}</nav>
+      <main className="creation-main">
+        {!draft || !project ? <StudioHero><p>弹几个音，写一段话，或带上你的歌词。每首歌独立保存，音符可编辑，可导出 MIDI。</p><div className="inline-actions"><button className="btn lg primary" disabled={busy} onClick={() => setModal('new')}>＋ 新建第一首歌</button></div></StudioHero> : <>
+          <nav className="steps glass" aria-label="工作步骤">
+            {([['inputs', '01', '收集灵感', '弹奏 · 描述 · AI 编曲'], ['edit', '02', '演奏与编辑', '声部 · 音符'], ['files', '03', '保存与导出', 'MIDI · 音频 · 演唱']] as const).map(([name, number, label, detail]) =>
+              <button key={name} className={view === name ? 'active' : ''} aria-current={view === name ? 'step' : undefined} disabled={busy} onClick={() => changeView(name)}>
+                <b>{number}</b><span>{label}<small aria-hidden="true">{detail}</small></span>
+              </button>)}
+          </nav>
           {view === 'inputs' && <>
             <div className="page-heading"><span className="eyebrow">A LITTLE SOUND, A LITTLE STORY</span><h1>先听听，再决定怎么表达。</h1><p>演奏和文字都可以先保存。无需先弹琴，也可以只整理文字灵感。</p></div>
             <div className="creation-grid"><div className="column">
-              <article className="card"><div className="card-heading"><h2><em>1</em> 试着弹一小段</h2><span className="tag">真实音色试听</span></div><p className="muted">点击琴键，或按 A–K。填写文字时，电脑按键不会触发琴键。</p>
-                <div className="audio-state"><span data-testid="audio-status">{audioStatus}</span><meter aria-label="音频电平" data-testid="audio-level" min="0" max="1" value={audioLevel} /></div>
-                <div className="instrument-buttons">{(['keyboard', 'drums', 'guitar', 'bass'] as Family[]).map(family => {
+              <article className="card"><div className="card-heading"><h2><em className="card-number">1</em> 试着弹一小段</h2><span className="tag">真实音色试听</span></div>
+                <div className="instrument-buttons seg">{(['keyboard', 'drums', 'guitar', 'bass'] as Family[]).map(family => {
                   const target = draft.score.tracks.find(track => track.family === family);
-                  return <button key={family} className={activeTrack?.family === family ? 'active' : ''} disabled={!target || busy} aria-pressed={activeTrack?.family === family} onClick={() => target && chooseTrack(target)}>{familyNames[family]}</button>;
+                  return <button key={family} data-family={family} className={activeTrack?.family === family ? 'active' : ''} disabled={!target || busy} aria-pressed={activeTrack?.family === family} onClick={() => target && chooseTrack(target)}><span className="track-swatch" aria-hidden="true" />{familyNames[family]}</button>;
                 })}</div>
-                <div className="keyboard" aria-label="电子琴键盘">{[0, 2, 4, 5, 7, 9, 11, 12, 1, 3, 6, 8, 10].map(index => {
+                <div className="keyboard-deck">
+                  <p className="keyboard-help">A–K 白键 · W E T Y U 黑键 · 打字时不触发琴键</p>
+                  <div className="audio-state"><span data-testid="audio-status">{audioStatus}</span><meter aria-label="音频电平" data-testid="audio-level" min="0" max="1" value={audioLevel} /></div>
+                  <div className="keyboard" aria-label="电子琴键盘">{[0, 2, 4, 5, 7, 9, 11, 12, 1, 3, 6, 8, 10].map(index => {
                   const black = [1, 3, 6, 8, 10].includes(index);
                   const position: Record<number, number> = { 1: 1, 3: 2, 6: 4, 8: 5, 10: 6 };
                   const pitch = activeTrack?.is_drum ? DRUM_PITCHES[index] : basePitch + index;
@@ -446,7 +467,8 @@ export default function App({active = true}: {active?: boolean}) {
                     onPointerUp={event => release('pointer' + event.pointerId)} onPointerCancel={event => release('pointer' + event.pointerId)}>
                     <small>{black ? '' : noteName(pitch, activeTrack?.is_drum)}</small><span>{KEY_CODES[index].slice(3)}</span>
                   </button>;
-                })}</div>
+                  })}</div>
+                </div>
                 <div className="keyboard-options"><span>{activeTrack?.is_drum ? 'A 底鼓 · S 军鼓 · D 闭踩镲' : `${activeTrack?.name} · 电脑按键固定力度`}</span>{!activeTrack?.is_drum && <div><button disabled={basePitch <= 0 || busy} onClick={() => { releaseAll(); setBasePitch(pitch => pitch - 12); }}>低八度</button><button disabled={basePitch >= 108 || busy} onClick={() => { releaseAll(); setBasePitch(pitch => pitch + 12); }}>高八度</button></div>}</div>
                 <div className="record-bar"><button className={recording ? 'record recording' : 'record'} disabled={busy} onClick={() => void run(async () => {
                   if (take.current) { finishRecording(); return; }
@@ -461,6 +483,7 @@ export default function App({active = true}: {active?: boolean}) {
                   <button className="text-button" disabled={busy || recording || !draft.inputs.recording.length} onClick={() => { stop(); inputs({ recording: [] }); }}>清空</button>
                   <span data-testid="record-info">{recording ? '录制中 · ' : ''}{draft.inputs.recording.length} 个音符</span>
                 </div>
+                <RecordingTimeline notes={draft.inputs.recording} recording={recording} />
                 <div className="inline-actions"><button disabled={busy || recording || !draft.inputs.recording.length} onClick={() => {
                   const recording = copy(draftRef.current!.inputs.recording);
                   if (recording.some(note => !draftRef.current!.score.tracks.some(track => track.id === note.track_id))) { setMessage('录制所用声部已被 MIDI 导入替换，请重新录制。原始片段仍保留。'); return; }
@@ -474,7 +497,13 @@ export default function App({active = true}: {active?: boolean}) {
                 <label className="field">这段旋律如何参与创作？<select aria-label="旋律参与方式" disabled={busy} value={draft.inputs.melody_mode} onChange={event => inputs({ melody_mode: event.target.value as Inputs['melody_mode'] })}><option value="extend">依据原始走向，自由延展</option><option value="preserve">完整保留原演奏，随后延展</option></select></label>
                 <p className="hint">此选择作为 AI 编曲约束。鼓键使用 GM 打击乐音符，不当作钢琴音高。</p>
               </article>
-              <article className="card"><div className="card-heading"><h2><em>2</em> 带上你的歌词</h2><label className={`upload-button ${busy ? 'disabled' : ''}`}>↑ 上传 TXT<input type="file" accept=".txt,text/plain" aria-label="上传歌词 TXT" disabled={busy || recording} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void run(() => upload(file, 'lyrics')); }} /></label></div>
+            </div><div className="column">
+              <article className="card">
+                <div className="card-heading"><h2><em className="card-number">2</em> 描述你想要的感觉</h2></div>
+                <label className="field">主题<input disabled={busy} value={draft.inputs.theme} maxLength={2000} placeholder="例如：毕业后，奔向各自的生活" onChange={event => inputs({ theme: event.target.value })} /></label>
+                <label className="field">情感与希望的音乐感觉<textarea disabled={busy} rows={3} maxLength={4000} value={draft.inputs.emotion} placeholder="有一点不舍，但希望明亮、轻快，带着期待……" onChange={event => inputs({ emotion: event.target.value })} /></label>
+                <div className="lyrics-input-block">
+                  <div className="card-heading"><h3>带上你的歌词</h3><label className={`upload-button ${busy ? 'disabled' : ''}`}><Icon name="upload" />上传 TXT<input type="file" accept=".txt,text/plain" aria-label="上传歌词 TXT" disabled={busy || recording} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void run(() => upload(file, 'lyrics')); }} /></label></div>
                 <p className="muted">UTF-8 TXT，最多 500 KB。原文件会保留在歌曲目录。也可以直接粘贴。</p>
                 <label className="sr-only" htmlFor="lyrics">歌词全文</label><textarea id="lyrics" disabled={busy} rows={5} value={draft.inputs.lyrics_text} placeholder="把想唱的话写在这里……" onChange={event => { const text = event.target.value.replace(/\r\n?/g, '\n'); inputs({ lyrics_text: text, selected_lines: fullLyricLines(text) }); }} />
                 <div className="lyric-label">一次谱曲覆盖全文 <span data-testid="lyric-selection-count">使用 {selectedLyrics?.lines} 行 · {selectedLyrics?.units}/1024 字词（最多64行）</span></div>
@@ -484,32 +513,29 @@ export default function App({active = true}: {active?: boolean}) {
                 {!!draft.inputs.selected_lines.length && <p className="hint">不再先选60秒歌词。模型设计逐句旋律，平台安排全文的字词、换气、器乐段与伴奏；可唱性仍须亲自试唱。</p>}
                 <div className="lyric-lines">{lines.map((line, index) => line.trim() && <p key={index}><span>{index + 1}. {line}</span></p>)}</div>
                 <p className="hint">歌词决定表达内容，情感描述决定音乐呈现。悲伤歌词也可以搭配明亮曲风。生成后展示字词与主旋律对应；采用并保存后，可在“保存与导出”中生成绮萱演唱并试听。</p>
-              </article>
-            </div><div className="column"><article className="card"><h2><em>3</em> 想表达什么？</h2>
-              <label className="field">主题<input disabled={busy} value={draft.inputs.theme} maxLength={2000} placeholder="例如：毕业后，奔向各自的生活" onChange={event => inputs({ theme: event.target.value })} /></label>
-              <label className="field">情感与希望的音乐感觉<textarea disabled={busy} rows={5} maxLength={4000} value={draft.inputs.emotion} placeholder="有一点不舍，但希望明亮、轻快，带着期待……" onChange={event => inputs({ emotion: event.target.value })} /></label>
+                </div>
               <div className="input-summary"><span>已记录的灵感</span><p>{draft.inputs.recording.length} 个演奏音符 · {draft.inputs.selected_lines.length} 行歌词</p></div>
               <button className="primary full-width" disabled={busy} onClick={() => void run(async () => { await saveCurrent(); setMessage('创作输入已保存到歌曲目录。'); })}>保存这份灵感</button>
-            </article><AICreation key={project.id} project={project} draft={draft} busy={busy} operation="generate" dirty={dirty} prepare={saveCurrent} run={run} apply={applyCandidate} preview={previewCandidate} practice={practice} /><button className="text-button" disabled={busy} onClick={() => changeView('edit')}>去手动编辑 →</button></div></div>
+            </article><AICreation key={project.id} project={project} draft={draft} busy={busy} operation="generate" dirty={dirty} prepare={saveCurrent} run={run} apply={applyCandidate} preview={previewCandidate} practice={practice} onModelMode={setModelMode} /><button className="text-button" disabled={busy} onClick={() => changeView('edit')}>去手动编辑 →</button></div></div>
           </>}
           {view === 'edit' && activeTrack && <>
             <div className="page-heading"><span className="eyebrow">GIVE YOUR IDEA A SHAPE</span><h1>让每一个音，落在想要的位置。</h1><p>先选声部，点网格添加音符；点音符后，可用下方表单移动和调整。</p></div>
-            <div className="editor-toolbar"><button className="primary" disabled={busy} onClick={() => { if (playing) stop(); else void run(playScore); }}>{playing ? '■ 停止试听' : '▶ 试听编曲'}</button><button disabled={!playing} onClick={stop}>停止</button><span className="play-clock">{clock(playTime)} / {clock(playing ? playDuration : duration)}</span>
+            <div className="editor-toolbar glass"><button className="primary" disabled={busy} onClick={() => { if (playing) stop(); else void run(playScore); }}>{playing ? '■ 停止试听' : '▶ 试听编曲'}</button><button disabled={!playing} onClick={stop}>停止</button><span className="play-clock">{clock(playTime)} / {clock(playing ? playDuration : duration)}</span>
               <button disabled={busy || (!undo.current.length && (dirty || !project.can_undo))} onClick={() => void run(() => moveHistory('undo'))}>↶ 撤销</button><button disabled={busy || (!redo.current.length && (dirty || !project.can_redo))} onClick={() => void run(() => moveHistory('redo'))}>↷ 重做</button>
               <label className="upload-button">↑ 导入 MIDI<input type="file" accept=".mid,.midi,audio/midi" aria-label="导入 MIDI" disabled={busy} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void run(() => upload(file, 'midi')); }} /></label>
             </div>
-            <div className="editor-layout"><article className="card tracks-card"><h2>乐器声部</h2><p className="muted">静音和独奏作用于编曲试听。</p>{draft.score.tracks.map(track => <div key={track.id} className={`track ${activeTrack.id === track.id ? 'active' : ''}`} style={{ '--track-color': familyColors[track.family] } as React.CSSProperties}>
+            <div className="editor-layout"><article className="card tracks-card"><h2>乐器声部</h2><p className="muted">静音和独奏作用于编曲试听。</p><div className="track-list">{draft.score.tracks.map(track => <div key={track.id} className={`track ${activeTrack.id === track.id ? 'active' : ''}`} data-family={track.family}>
               <button className="track-select" disabled={busy} onClick={() => chooseTrack(track)}>{track.name}<small>{track.notes.length} 个音符 · 通道 {track.channel + 1}</small></button>
               <div className="track-buttons">{(['solo', 'mute'] as const).map(key => <button key={key} disabled={busy} aria-pressed={track[key]} className={track[key] ? 'on' : ''} onClick={() => editScore(`调整${track.name}${key === 'solo' ? '独奏' : '静音'}`, score => { const target = score.tracks.find(item => item.id === track.id)!; target[key] = !target[key]; })}>{key === 'solo' ? '独奏' : '静音'}</button>)}</div>
               <label className="compact-field">音色<select aria-label={`${track.name}音色`} disabled={busy || track.is_drum} value={track.program} onChange={event => editScore(`调整${track.name}音色`, score => { score.tracks.find(item => item.id === track.id)!.program = Number(event.target.value); })}>
                 {!programs[track.family].some(([value]) => value === track.program) && <option value={track.program}>导入音色 · Program {track.program}</option>}
                 {programs[track.family].map(([value, name]) => <option key={value} value={value}>{name}</option>)}
               </select></label><label className="compact-field">音量 {track.volume}%<input type="range" aria-label={`${track.name}音量`} min={0} max={100} disabled={busy} value={track.volume} onChange={event => editScore(`调整${track.name}音量`, score => { score.tracks.find(item => item.id === track.id)!.volume = Number(event.target.value); })} /></label>
-            </div>)}</article>
-            <article className="card piano-roll" style={{ '--track-color': familyColors[activeTrack.family] } as React.CSSProperties}><div className="card-heading"><h2>{activeTrack.name} · 音符时间轴</h2><span className="tag">真实音色试听</span></div>
+            </div>)}</div></article>
+            <article className="card piano-roll" data-family={activeTrack.family}><div className="card-heading"><h2><span className="track-swatch" aria-hidden="true" />{activeTrack.name} · 音符时间轴</h2><span className="tag">真实音色试听</span></div>
               <div className="score-controls"><label>开头速度（BPM）<input type="number" min={40} max={240} aria-label="开头速度" disabled={busy || draft.score.tempo_map.length > 1} value={Math.round(60e6 / draft.score.tempo_map[0].microseconds_per_beat)} onChange={event => {
                 const bpm = Number(event.target.value); if (bpm >= 40 && bpm <= 240) editScore('调整速度', score => { score.tempo_map[0].microseconds_per_beat = Math.round(60e6 / bpm); });
-              }} /></label><span>{draft.score.time_signatures[0].numerator}/{draft.score.time_signatures[0].denominator} · {draft.score.tempo_map.length > 1 ? '导入变速已保留，首阶段不编辑变速图' : `${clock(duration)} 时间轴`}</span></div>
+              }} /></label><span>{draft.score.time_signatures[0].numerator}/{draft.score.time_signatures[0].denominator} · {draft.score.tempo_map.length > 1 ? '导入变速已保留，当前不能编辑变速图' : `${clock(duration)} 时间轴`}</span></div>
               <PianoRoll score={draft.score} track={activeTrack} selected={selected} onSelect={setSelected} onAdd={addNote} highlighted={groupNoteIds} />
               <p className="muted">左右滚动查看完整时间轴。坐标按四分音符拍计；网格新增以 1/4 拍定位，录制只做 tick 精度换算。</p>
               <form className="note-form" onSubmit={event => {
@@ -522,33 +548,42 @@ export default function App({active = true}: {active?: boolean}) {
                 <button type="submit" disabled={!note || busy}>应用修改</button><button type="button" disabled={!note || busy} onClick={() => { editScore('删除音符', score => { const track = score.tracks.find(track => track.id === activeTrack.id)!; track.notes = track.notes.filter(item => item.id !== selected); }); setSelected(null); }}>删除音符</button>
               </form><p className="muted">{note ? `${noteName(note.pitch, activeTrack.is_drum)} 已选中` : '点一个音符即可修改；点空白网格添加。'}</p>
             </article></div>
+            <div className="edit-followups">
             <LyricRepair state={draft} busy={busy} bind={repairLyrics} />
             <LyricGroupEditor state={draft} busy={busy} edit={editLyricGroup} practice={practice} select={selectLyricGroup} stop={stop} />
-            <AICreation key={project.id} project={project} draft={draft} busy={busy} operation="modify" dirty={dirty} prepare={saveCurrent} run={run} apply={applyCandidate} preview={previewCandidate} practice={practice} />
+            <AICreation key={project.id} project={project} draft={draft} busy={busy} operation="modify" dirty={dirty} prepare={saveCurrent} run={run} apply={applyCandidate} preview={previewCandidate} practice={practice} onModelMode={setModelMode} />
+            </div>
             <div className="bottom-actions"><button disabled={busy} onClick={() => changeView('inputs')}>← 返回创作输入</button><button className="primary" disabled={busy} onClick={() => changeView('files')}>去保存与导出 →</button></div>
           </>}
           {view === 'files' && <>
             <div className="page-heading"><span className="eyebrow">KEEP WHAT YOU HAVE MADE</span><h1>把灵感，留在这首歌里。</h1><p>歌词、演奏输入、乐谱和历史版本，都在这首歌自己的目录中。</p></div>
-            <div className="files-grid"><article className="card"><span className="tag">当前已保存版本 v{project.revision.number}</span><h2 className="spaced">歌曲工程</h2><dl className="project-details"><dt>保存位置</dt><dd><code>{project.directory}/</code></dd><dt>保存方式</dt><dd>手动保存；收到后端确认后显示已保存。</dd><dt>当前内容</dt><dd>{draft.score.tracks.length} 个声部 · {totalNotes} 个音符 · {draft.inputs.selected_lines.length} 行歌词选段</dd><dt>时间轴</dt><dd>{clock(duration)}（空白时间也保留在 MIDI 中）</dd></dl>
+            <div className="files-grid"><div className="column"><article className="card"><div className="card-heading"><h2>歌曲工程</h2><span className="tag accent">当前已保存版本 v{project.revision.number}</span></div><dl className="project-details"><dt>保存位置</dt><dd><code>{project.directory}/</code></dd><dt>保存方式</dt><dd>手动保存；收到后端确认后显示已保存。</dd><dt>当前内容</dt><dd>{draft.score.tracks.length} 个声部 · {totalNotes} 个音符 · {draft.inputs.selected_lines.length} 行歌词选段</dd><dt>时间轴</dt><dd>{clock(duration)}（空白时间也保留在 MIDI 中）</dd></dl>
               {dirty && <p className="hint">你还有未保存的修改。导出 MIDI 会先保存当前草稿。</p>}
               <div className="inline-actions"><button className="primary" disabled={busy || !dirty} onClick={() => void run(async () => { await saveCurrent(); setMessage('当前歌曲已保存。'); })}>保存当前版本</button><button disabled={busy} onClick={draftDownload}>下载草稿 JSON</button></div>
               {chosenText && <div className="chosen-lyrics"><b>当前版本使用的歌词</b><p>{chosenText}</p></div>}
               <p className="muted">草稿 JSON 用于备份检查，当前不提供 JSON 导入。请定期备份整个 data 文件夹。</p>
-            </article><article className="card"><h2>带走你的音乐</h2><button className="export-card" disabled={busy || !totalNotes} onClick={() => void run(async () => {
+            </article>
+            <AudioExports key={project.id} project={project} dirty={dirty} busy={busy} prepare={saveCurrent} run={run} stopOther={() => stop('render')} />
+            </div><div className="column"><article className="card"><h2>带走你的音乐</h2><button className="export-card" disabled={busy || !totalNotes} onClick={() => void run(async () => {
               const current = await saveCurrent(); const response = await rawRequest(`/projects/${current.id}/midi-export`, { method: 'POST', body: JSON.stringify({ base_revision: current.current_revision }) });
               download(await response.blob(), `neonote-${current.id.slice(0, 8)}-v${current.revision.number}.mid`); setMessage(`真实 MIDI 已下载，并保存到 ${current.directory}/exports/。`);
-            })}><b>♫ MIDI</b><span>真实多轨文件 · 保留音符、时间与实际乐器信息</span><em>导出 ↓</em></button>
+            })}><b className="format-badge">MIDI</b><span><strong>多轨 MIDI</strong><small>真实多轨文件 · 保留音符、时间与实际乐器信息</small></span><em><Icon name="download" />导出</em></button>
               <p className="muted">导出完整乐谱，保留所有声部音符。静音与独奏设置保存在工程中、用于试听；MIDI 保留声部音量。没有音符时不能导出。</p>
               <p className="hint">MIDI 是可编辑的演奏信息，WAV 和 MP3 是下面实际渲染的声音。</p>
-            </article></div>
+            </article>
             <VocalPanel key={`vocals-${project.id}`} project={project} dirty={dirty} busy={busy} prepare={saveCurrent} run={run} stopOther={() => stop()} />
-            <AudioExports key={project.id} project={project} dirty={dirty} busy={busy} prepare={saveCurrent} run={run} stopOther={() => stop('render')} />
-            <ReviewPanel key={project.id} project={project} state={draft} dirty={dirty} busy={busy} run={run} practice={practice} reviewUpdated={() => setReviewSignal(value => value + 1)} />{draft.composition?.scope !== 'lyrics' && <AICreation key={`full-${project.id}`} project={project} draft={draft} dirty={dirty} busy={busy} operation="full" prepare={saveCurrent} run={run} apply={applyCandidate} preview={previewCandidate} practice={practice} reviewSignal={reviewSignal} />}
+            </div></div>
+            <ReviewPanel key={project.id} project={project} state={draft} dirty={dirty} busy={busy} run={run} practice={practice} reviewUpdated={() => setReviewSignal(value => value + 1)} />{draft.composition?.scope !== 'lyrics' && <AICreation key={`full-${project.id}`} project={project} draft={draft} dirty={dirty} busy={busy} operation="full" prepare={saveCurrent} run={run} apply={applyCandidate} preview={previewCandidate} practice={practice} reviewSignal={reviewSignal} onModelMode={setModelMode} />}
           </>}
         </>}
       </main><footer>NeoNote <span>把复杂留给工具，把表达留给你。</span><span>本地工作台</span></footer>
     </div>
-    {playing && <div className="floating-player"><span>真实音色试听 · {clock(playTime)} / {clock(playDuration)}</span><meter aria-label="回放音频电平" data-testid="playback-audio-level" min="0" max="1" value={audioLevel} /><button onClick={stop}>■ 停止</button></div>}
+    {playing && <div className="floating-player glass">
+      <span className="player-time">真实音色试听 <b>{clock(playTime)} / {clock(playDuration)}</b></span>
+      <meter aria-label="回放音频电平" data-testid="playback-audio-level" min="0" max="1" value={audioLevel} />
+      <progress aria-label="试听播放进度" max={Math.max(playDuration, .001)} value={Math.min(playDuration, playTime)} />
+      <button onClick={stop}>■ 停止</button>
+    </div>}
     {modal === 'delete' && deleteTarget && <Modal title="删除这首歌曲？" close={() => { if (!busyRef.current) { setModal(null); setDeleteTarget(null); } }}>
       <p>将「{deleteTarget.name}」（{deleteTarget.id.slice(0, 8)}）从歌曲列表移除。已保存的歌词、演奏、所有版本、AI候选及MIDI/WAV/MP3会一起移到本地回收站，可恢复。</p>
       {project?.id === deleteTarget.id && dirty && <><p className="hint">当前未保存的修改会被放弃，回收站只能恢复已保存内容。需要保留草稿时，请先下载或取消删除后保存。</p><button disabled={busy} onClick={draftDownload}>下载当前草稿</button></>}
@@ -569,10 +604,11 @@ export default function App({active = true}: {active?: boolean}) {
     {modal === 'new' && <Modal title="新建一首歌" close={() => setModal(null)}><form onSubmit={event => {
       event.preventDefault(); const name = newName.trim(); if (!name) return;
       setModal(null); guard(async () => { accept(await request<Project>('/projects', { method: 'POST', body: JSON.stringify({ name }) })); await list(); setView('inputs'); });
-    }}><label className="field">歌曲名称<input autoFocus required maxLength={80} value={newName} onChange={event => setNewName(event.target.value)} placeholder="例如：周末的小旅行" /></label><p className="muted">创建空白歌曲，使用独立 ID 保存到 data/。同名歌曲也不会互相覆盖。</p><button className="primary" disabled={busy}>创建歌曲</button></form></Modal>}
-    {modal === 'history' && <Modal title="已保存的历史版本" close={() => setModal(null)}><p className="muted">版本保存在磁盘，刷新或重启后仍可撤销、重做和恢复。恢复历史会创建新版本。</p>{history.map(item => <div className="history-row" key={item.id}><div><b>v{item.number} · {item.label}</b><small>{new Date(item.created_at).toLocaleString()} {item.id === project?.current_revision ? ' · 当前已保存' : ''}</small></div><button disabled={busy || item.id === project?.current_revision} onClick={() => {
+    }}><label className="field">歌曲名称<input autoFocus required maxLength={80} value={newName} onChange={event => setNewName(event.target.value)} placeholder="例如：周末的小旅行" /></label><p className="muted">创建空白歌曲，使用独立 ID 保存到 data/。同名歌曲也不会互相覆盖。</p><div className="modal-actions"><button className="primary" disabled={busy}>创建歌曲</button></div></form></Modal>}
+    {modal === 'history' && <Modal title="已保存的历史版本" close={() => setModal(null)}><p className="muted">版本保存在磁盘，刷新或重启后仍可撤销、重做和恢复。恢复历史会创建新版本。</p><div className="history-timeline">{history.map(item => <div className="history-row" data-current={item.id === project?.current_revision} key={item.id}><div><b>v{item.number} · {item.label}</b><small>{new Date(item.created_at).toLocaleString()} {item.id === project?.current_revision ? ' · 当前已保存' : ''}</small></div><button disabled={busy || item.id === project?.current_revision} onClick={() => {
       setModal(null); guard(async () => { const current = projectRef.current!; accept(await request<Project>(`/projects/${current.id}/restore`, { method: 'POST', body: JSON.stringify({ base_revision: current.current_revision, revision_id: item.id }) })); await list(); });
-    }}>恢复</button></div>)}</Modal>}
+    }}>恢复</button></div>)}</div></Modal>}
     {modal === 'unsaved' && <Modal title="这首歌还有未保存的修改" close={() => setModal(null)}><p>可以先保存再继续，或明确放弃当前草稿。你已保存的歌曲版本会保留。</p><button onClick={draftDownload}>下载当前草稿</button><div className="modal-actions"><button className="primary" disabled={busy} onClick={() => void run(async () => { await saveCurrent(); const action = continuation.current; continuation.current = null; setModal(null); await action?.(); })}>保存并继续</button><button disabled={busy} onClick={() => { const action = continuation.current; continuation.current = null; setModal(null); if (action) void run(action); }}>放弃草稿并继续</button><button disabled={busy} onClick={() => setModal(null)}>取消</button></div></Modal>}
-  </div>;
+    </div>
+  </>;
 }

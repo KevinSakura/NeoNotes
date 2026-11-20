@@ -42,19 +42,19 @@ export default function PianoRoll({ score, track, selected, onSelect, onAdd, hig
       {Array.from({ length: high - low + 1 }, (_, i) => {
         const pitch = high - i;
         return <g key={pitch}>
-          <rect x={0} y={25 + i * row} width={width} height={row} fill={[1, 3, 6, 8, 10].includes(pitch % 12) && !track.is_drum ? '#eff3ec' : '#f9fbf6'} />
+          <rect x={0} y={25 + i * row} width={width} height={row} fill={[1, 3, 6, 8, 10].includes(pitch % 12) && !track.is_drum ? 'var(--surface-2)' : 'var(--surface)'} />
           <text x={5} y={38 + i * row} className="pitch-label">{noteName(pitch, track.is_drum)}</text>
-          <line x1={label} y1={25 + i * row} x2={width} y2={25 + i * row} stroke="#e3e9df" />
+          <line x1={label} y1={25 + i * row} x2={width} y2={25 + i * row} stroke="var(--grid-line)" />
         </g>;
       })}
       {Array.from({ length: beats + 1 }, (_, i) => <g key={i}>
-        <line x1={label + i * beat} y1={25} x2={label + i * beat} y2={height} stroke={i % 4 ? '#e3e9df' : '#bdcdb5'} />
+        <line x1={label + i * beat} y1={25} x2={label + i * beat} y2={height} stroke={i % 4 ? 'var(--grid-line)' : 'var(--border-strong)'} />
         {i % 4 === 0 && <text x={label + i * beat + 3} y={16}>{i} 拍</text>}
       </g>)}
       {track.notes.map(note => <rect key={note.id} data-testid="roll-note"
         x={label + note.start_tick / score.ppq * beat + 1} y={25 + (high - note.pitch) * row + 2}
         width={Math.max(4, note.duration_tick / score.ppq * beat - 2)} height={row - 4} rx={3}
-        fill="var(--track-color)" stroke={selected === note.id || highlighted.includes(note.id) ? '#163b2d' : 'none'} strokeWidth={highlighted.includes(note.id) ? 3 : 2}
+        fill="var(--track-color)" stroke={selected === note.id || highlighted.includes(note.id) ? 'var(--text)' : 'none'} strokeWidth={highlighted.includes(note.id) ? 3 : 2}
         data-group-selected={highlighted.includes(note.id)}
         tabIndex={0} role="button" aria-label={noteLabel(note)}
         onClick={event => { event.stopPropagation(); onSelect(note.id); }}

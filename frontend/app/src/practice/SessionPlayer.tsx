@@ -145,13 +145,21 @@ export default function SessionPlayer({revision,active,incoming,onHighlights,onS
   function pointerUp(pitch:number,token:string,instance?:string){if(instance&&virtual.current.has(instance)){virtual.current.get(instance)!.stop();virtual.current.delete(instance);emit({kind:'note_up',at:now(),pitch,instance,source:'screen',pointer_token:token});}}
   const pointers=useRef(new Map<number,{pitch:number;instance?:string}>());
   const current=result?.recognition.next_index??0,lastTiming=result?.rhythm.at(-1),percent=(v:number|null)=>v===null||v===undefined?'未作答':`${(v*100).toFixed(1)}%`;
-  return <section className="practice-card" data-testid="practice-player"><h2>先认音，再练节奏</h2>{error&&<p role="alert">{error}</p>}
-    <p data-testid="practice-save-state">{saveState||'尚未开始练习'}{saveState.startsWith('保存失败')&&<button onClick={()=>void buffer.current?.flush()}>重试保存</button>}</p>
-    <div className="practice-actions"><button disabled={loading||['recognition','rhythm'].includes(phase)} onClick={()=>void startReading()}>开始新的认音轮</button><button disabled={loading||phase!=='paused'||result?.recognition.complete} onClick={()=>void continueReading()}>继续认音</button><button disabled={loading||!result?.recognition.complete||phase==='rhythm'} onClick={()=>void startRhythm()}>从头开始节奏轮</button><button disabled={loading||phase!=='paused'||!result?.rhythm.length} onClick={()=>void startRhythm(true)}>重新预备后续练</button><button onClick={()=>pause('manual')}>暂停 / 停止</button><button disabled={loading} onClick={()=>void preview()}>听一遍整理谱</button></div>
+  return <section className="practice-card practice-session" data-testid="practice-player">
+    <div className="card-heading">
+      <h2>先认音，再练节奏</h2>
+      <p className={`practice-save-state tag ${saveState.startsWith('保存失败') ? 'warn' : 'accent'}`} data-testid="practice-save-state">{saveState||'尚未开始练习'}{saveState.startsWith('保存失败')&&<button className="btn sm" onClick={()=>void buffer.current?.flush()}>重试保存</button>}</p>
+    </div>
+    {error&&<p role="alert" className="render-notice">{error}</p>}
+    <div className="practice-actions"><button className="primary" disabled={loading||['recognition','rhythm'].includes(phase)} onClick={()=>void startReading()}>开始新的认音轮</button><button disabled={loading||phase!=='paused'||result?.recognition.complete} onClick={()=>void continueReading()}>继续认音</button><button disabled={loading||!result?.recognition.complete||phase==='rhythm'} onClick={()=>void startRhythm()}>从头开始节奏轮</button><button disabled={loading||phase!=='paused'||!result?.rhythm.length} onClick={()=>void startRhythm(true)}>重新预备后续练</button><button onClick={()=>pause('manual')}>暂停 / 停止</button><button disabled={loading} onClick={()=>void preview()}>听一遍整理谱</button></div>
     <label>练习速度<select aria-label="节奏练习速度" value={speed} disabled={phase==='rhythm'} onChange={e=>setSpeed(Number(e.target.value) as .5|.75|1)}><option value="0.5">0.5倍</option><option value="0.75">0.75倍</option><option value="1">原速</option></select></label>
     <div ref={capture} tabIndex={0} className="practice-capture" aria-label="练习键盘捕获区" onClick={()=>capture.current?.focus()} data-testid="practice-capture" data-phase={phase}>
       <b>{phase==='recognition'?`认音 ${Math.min(current+1,revision.targets.attacks.length)}/${revision.targets.attacks.length}`:phase==='rhythm'?position:phase==='completed'?'节奏轮已结束':phase==='paused'?'已暂停':phase==='recognition_complete'?'认音全部完成':phase==='self_test'?'多键自检中':phase==='calibration'?'敲击校准中':'点击开始，再在此区域弹奏'}</b>
-      <p>{feedback}</p><p data-testid="practice-key-state">当前基础八度{keyState.octave} · 收到的键：{keyState.codes.join('、')||'无'} · 发声：{keyState.pitches.map(p=>noteName(p)).join('、')||'无'}</p>
+      {feedback && <p>{feedback}</p>}
+      <div className="practice-register">
+        <p data-testid="practice-key-state">当前基础八度{keyState.octave} · 收到的键：{keyState.codes.join('、')||'无'} · 发声：{keyState.pitches.map(p=>noteName(p)).join('、')||'无'}</p>
+        <span className="octave-meter" aria-hidden="true">{[3,4,5].map(octave=><span key={octave} data-current={octave===keyState.octave}>{octave}</span>)}</span>
+      </div>
     </div>
     <details><summary>屏幕琴键与替代操作</summary><p>触屏可多点。鼠标逐音适合探索；和弦认音可勾选后同时试听作答，记录会标明屏幕输入。节奏轮仍要求真实同时起音。</p>
       <div className="practice-screen-keys">{Array.from({length:13},(_,i)=>48+(keyState.octave-3)*12+i).map(p=><button key={p} onPointerDown={e=>{e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);pointers.current.set(e.pointerId,{pitch:p,instance:pointerDown(p,String(e.pointerId))});}} onPointerUp={e=>{const n=pointers.current.get(e.pointerId);if(n){pointerUp(n.pitch,String(e.pointerId),n.instance);pointers.current.delete(e.pointerId);}}} onPointerCancel={e=>{const n=pointers.current.get(e.pointerId);if(n)pointerUp(n.pitch,String(e.pointerId),n.instance);pointers.current.delete(e.pointerId);}}>{noteName(p)}</button>)}</div>
@@ -163,7 +171,13 @@ export default function SessionPlayer({revision,active,incoming,onHighlights,onS
       <label><input type="checkbox" checked={verified} onChange={e=>{setVerified(e.target.checked);setSelfTest((s:any)=>({...s,user_confirmed:e.target.checked}));}} />我已自检并确认设备能完成这个片段的组合</label>
       <button disabled={loading} onClick={()=>void calibrate()}>听8拍并按s估计延迟</button><p>{calibration.status==='uncalibrated'?'未校准':`敲击估计偏移${calibration.offset_ms.toFixed(1)}ms，包含个人反应偏差`}；规则快照随新会话保存，当前练习不会自动调分。</p>
     </details>
-    {result&&<div data-testid="practice-result"><h3>本次记录</h3><p>首次已答准确率：{percent(result.recognition.first_accuracy)}；最终正确 {result.recognition.next_index}/{result.recognition.target_count}；尝试{result.recognition.attempts.length}次。</p><p>上项按首次完整答对的起音组计；首次音高准确率{percent(result.recognition.first_pitch_accuracy)}，累计音高准确率{percent(result.recognition.cumulative_pitch_accuracy)}。首次反应中位数{result.recognition.first_response_median_ms?.toFixed(1)??'未作答'}ms。</p>
+    {result&&<div className="practice-session-result" data-testid="practice-result"><h3>本次记录</h3>
+      <dl className="practice-stats">
+        <div><dt>首次已答准确率：</dt><dd>{percent(result.recognition.first_accuracy)}</dd></div>
+        <div><dt>最终正确</dt><dd>{result.recognition.next_index}/{result.recognition.target_count}</dd></div>
+        <div><dt>认音作答</dt><dd>尝试{result.recognition.attempts.length}次</dd></div>
+      </dl>
+      <p>上项按首次完整答对的起音组计；首次音高准确率{percent(result.recognition.first_pitch_accuracy)}，累计音高准确率{percent(result.recognition.cumulative_pitch_accuracy)}。首次反应中位数{result.recognition.first_response_median_ms?.toFixed(1)??'未作答'}ms。</p>
       {lastTiming&&<p>节奏音高准确率{percent(lastTiming.pitch_accuracy)}；准拍{percent(lastTiming.on_time_rate)}；漏音{lastTiming.missed.length}；额外/错音{lastTiming.extras.length}；休止误按{lastTiming.rest_errors}。{lastTiming.interrupted?'本段中断，保留已有作答。':lastTiming.complete?'本段完成。':'练习进行中。'}</p>}
       <p>松键、保持时值与圆滑表达分别提示，首版不加通关门槛。建议达标线：音高≥90%、准拍≥80%、休止误按0。</p>
       {lastTiming&&<p>匹配音起音偏差中位数{lastTiming.onset_median_abs_ms?.toFixed(1)??'未测量'}ms、P90 {lastTiming.onset_p90_abs_ms?.toFixed(1)??'未测量'}ms；{lastTiming.matched.filter((m:any)=>m.release_warning).length}音松键偏早或偏晚，{lastTiming.matched.filter((m:any)=>m.release_feedback==='held_or_interrupted').length}音没有有效松键测量。和弦齐奏{lastTiming.chord_feedback.filter((c:any)=>c.complete&&c.together).length}/{lastTiming.chord_feedback.length}组；{lastTiming.slur_feedback.filter((s:any)=>s.warning).length}处圆滑线有明显间隙。</p>}

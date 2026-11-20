@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="atelier">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeoNote · 新的乐章 — 本地音乐创作、识谱练习与钢琴扒谱工作台（Gemini 视觉重设计原型）</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- 顶部原型说明横幅：严格区分静态视觉原型与真实后端 -->
+  <div class="proto-ribbon" role="region" aria-label="原型模式说明">
+    <div class="proto-ribbon-inner">
+      <span class="proto-badge">GEMINI STUDIO PROTOTYPE · 静态交互原型</span>
+      <p>
+        当前页面为 <strong>frontend/front_gemini</strong> 独立视觉重设计原型：内置 Web Audio 合成器实时试弹、三模式全流程交互与示例数据演示；
+        <strong>不连接本地后端、不读写 data/ 目录、不读取 .env、不发起 DeepSeek / 绮萱人声 / Transkun 真实推理请求。</strong>
+      </p>
+      <div class="proto-ribbon-actions">
+        <span class="audio-pill" id="globalAudioBadge" data-ready="false">🔈 点击任意琴键激活 Web Audio 试听</span>
+        <button type="button" class="ribbon-btn" id="themeToggleBtn" aria-label="切换日间琴房与夜色录音棚主题">
+          <span class="theme-icon" id="themeIcon">◐</span>
+          <span id="themeLabel">切换：夜色录音棚</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 顶层全局导航栏 -->
+  <header class="studio-header">
+    <div class="brand-cluster">
+      <a href="#overview" class="brand-mark" id="brandHomeLink" aria-label="返回 NeoNote 工作台总览">
+        <span class="brand-emblem" aria-hidden="true">♮</span>
+        <span class="brand-text">
+          <strong>NeoNote</strong>
+          <small>新的乐章 · ACOUSTIC ATELIER</small>
+        </span>
+      </a>
+      <span class="header-divider" aria-hidden="true"></span>
+      <div class="environment-chips" aria-label="本地环境状态摘要">
+        <span class="env-chip ok" title="GeneralUser GS 本地音色（原型中使用 Web Audio 多音色包络模拟）">
+          <i></i>SoundFont · 模拟就绪
+        </span>
+        <span class="env-chip mock" title="AI 编曲接口处于静态演示模式，不消耗真实 Token">
+          <i></i>DeepSeek · 演示沙盒
+        </span>
+        <span class="env-chip info" title="绮萱 Qixuan v2.7.0 与 Transkun 2.0.1 状态">
+          <i></i>绮萱 / Transkun · 流程预览
+        </span>
+      </div>
+    </div>
+
+    <nav class="mode-switcher" aria-label="选择核心工作模式">
+      <button type="button" class="mode-tab active" data-mode="overview" aria-pressed="true">
+        <span class="mode-num">00</span>
+        <span class="mode-title">工作台总览</span>
+      </button>
+      <button type="button" class="mode-tab" data-mode="creation" aria-pressed="false">
+        <span class="mode-num">01</span>
+        <span class="mode-title">创作工作台</span>
+        <em class="mode-tag">AI 编曲 / 演唱</em>
+      </button>
+      <button type="button" class="mode-tab" data-mode="practice" aria-pressed="false">
+        <span class="mode-num">02</span>
+        <span class="mode-title">识谱与节奏练习</span>
+        <em class="mode-tag">15 谱 / 两轮闯关</em>
+      </button>
+      <button type="button" class="mode-tab" data-mode="transcription" aria-pressed="false">
+        <span class="mode-num">03</span>
+        <span class="mode-title">乐曲键盘扒谱</span>
+        <em class="mode-tag">音频转五线谱</em>
+      </button>
+    </nav>
+
+    <div class="header-utilities">
+      <div class="vu-meter-box" title="实时合成器输出电平">
+        <span class="vu-label">OUT</span>
+        <div class="vu-bars" id="headerVuBars" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <button type="button" class="ghost-btn" id="panicStopBtn" title="立即停止所有正在播放的声音并释放琴键">
+        ■ 停止发声
+      </button>
+    </div>
+  </header>
+
+  <!-- 全局通知条 -->
+  <div class="toast-banner" id="globalToast" role="status" aria-live="polite" hidden>
+    <span class="toast-dot"></span>
+    <span id="globalToastText"></span>
+    <button type="button" class="toast-close" id="globalToastClose" aria-label="关闭通知">×</button>
+  </div>
+
+  <!-- =====================================================================
+       VIEW 00: 工作台总览 (STUDIO OVERVIEW HUB)
+       ===================================================================== -->
+  <main id="view-overview" class="mode-view active" aria-label="工作台总览">
+    <section class="hero-atelier">
+      <div class="hero-copy">
+        <div class="eyebrow-row">
+          <span class="eyebrow-pill">ZERO-BARRIER MUSIC WORKSTATION</span>
+          <span class="eyebrow-meta">面向零基础创作者的本地音乐工作台</span>
+        </div>
+        <h1>新的乐章，从认谱与第一段旋律开始。</h1>
+        <p class="hero-lead">
+          无需预先掌握复杂乐理或专业宿主软件。在 <strong>NeoNote</strong>，你可以用电脑键盘直接弹奏灵感、带上全文歌词与情感描述交由 AI 完成四声部编曲，也可以从 15 条原创短谱开始识谱闯关，或将钢琴录音扒谱整理为可编辑的五线谱。
+        </p>
+        <div class="hero-cta-group">
+          <button type="button" class="btn-primary btn-lg" data-goto-mode="creation">
+            <span>进入创作工作台</span>
+            <small>虚拟键盘 · 全文谱曲 · 绮萱演唱</small>
+          </button>
+          <button type="button" class="btn-secondary btn-lg" data-goto-mode="practice">
+            <span>开始识谱与节奏练习</span>
+            <small>5 单元 15 谱 · 认音与节奏两轮</small>
+          </button>
+          <button type="button" class="btn-secondary btn-lg" data-goto-mode="transcription">
+            <span>打开钢琴扒谱室</span>
+            <small>Transkun 转录 · 边界诊断 · 32 声部</small>
+          </button>
+        </div>
+
+        <div class="architecture-pledge">
+          <div class="pledge-item">
+            <strong>显式手动保存与版本隔离</strong>
+            <span>每首歌曲拥有独立 <code>data/&lt;歌曲ID&gt;/</code> 目录，音频导出与不可变版本严格绑定，支持回收站整曲恢复。</span>
+          </div>
+          <div class="pledge-item">
+            <strong>真实可编辑多轨 MIDI</strong>
+            <span>AI 生成键盘、鼓、吉他、贝斯四声部结构化乐谱，保留原演奏前缀（Preserve）或走向延展，绝不仅生成黑盒音频。</span>
+          </div>
+          <div class="pledge-item">
+            <strong>透明边界与人工把关</strong>
+            <span>混音分离须先试听确认，歌词谱曲支持逐句 0.75× 慢速练唱与多音字修正，软件检查不冒充音乐质量验收。</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：即刻试弹迷你合成器台 -->
+      <aside class="hero-synth-deck" aria-label="快速试弹体验琴台">
+        <div class="deck-top">
+          <div>
+            <span class="deck-kicker">INSTANT AUDITION DECK</span>
+            <h2>即刻试弹 · 感受键盘与音色</h2>
+          </div>
+          <span class="hardware-led" id="heroSynthLed">READY</span>
+        </div>
+        <p class="deck-desc">
+          直接点击下方琴键，或切换到「创作 / 练习」模式使用电脑按键演奏。支持四种基础乐队声部实时切换：
+        </p>
+        <div class="timbre-selector" id="heroTimbreSelector" role="group" aria-label="试弹音色选择">
+          <button type="button" class="timbre-pill active" data-family="keyboard">🎹 原声钢琴</button>
+          <button type="button" class="timbre-pill" data-family="guitar">🎸 钢弦吉他</button>
+          <button type="button" class="timbre-pill" data-family="bass">🎻 指弹贝斯</button>
+          <button type="button" class="timbre-pill" data-family="drums">🥁 GM 鼓组</button>
+        </div>
+        <div class="mini-piano" id="heroMiniPiano" aria-label="总览页快速试弹琴键"></div>
+        <div class="deck-footer">
+          <span id="heroLastNoteReadout">等待按键触发…（点击琴键试听 C4–C5）</span>
+          <button type="button" class="link-btn" id="heroDemoArpBtn">▶ 播放一段温暖和弦示例</button>
+        </div>
+      </aside>
+    </section>
+
+    <!-- 三大核心入口全景卡片 -->
+    <section class="pillars-section" aria-label="三大工作台详情">
+      <div class="section-header">
+        <div>
+          <span class="eyebrow">THREE INDEPENDENT WORKSPACES</span>
+          <h2>三大独立入口，数据互不污染</h2>
+        </div>
+        <p class="muted">创作草稿、练习记录（<code>data/.practice</code>）与扒谱修订（<code>data/.transcriptions</code>）各自独立存储。</p>
+      </div>
+
+      <div class="pillar-grid">
+        <article class="pillar-card">
+          <div class="pillar-card-top">
+            <span class="pillar-index">MODE 01</span>
+            <span class="status-pill emerald">全链路演示</span>
+          </div>
+          <h3>创作模式 · 灵感录制、AI 编曲与中文演唱</h3>
+          <p>
+            使用 <code>A W S E D F T G Y H U J K</code> 录制旋律片段，输入主题、情感或最多 64 行 / 1024 字词的歌词。基于 <code>lyric-motifs-v1</code> 一次覆盖全文，或生成 60 秒器乐短曲并在审核后扩展为 3 分 15 秒整曲。
+          </p>
+          <ul class="feature-checklist">
+            <li>支持 <strong>完整保留原演奏 (Preserve)</strong> 或 <strong>依走向延展 (Extend)</strong></li>
+            <li>四声部钢琴卷帘（Piano Roll）、独奏/静音、自然语言整曲修改</li>
+            <li>歌词对应人工修复、0.75× 单句循环练唱、乐句与转音 v2 原子编辑</li>
+            <li>绮萱 v2.7.0 普通话独唱合成（多音字拼音修正）与 WAV/MP3 渲染导出</li>
+          </ul>
+          <button type="button" class="btn-outline full-width" data-goto-mode="creation">进入创作工作台 →</button>
+        </article>
+
+        <article class="pillar-card">
+          <div class="pillar-card-top">
+            <span class="pillar-index">MODE 02</span>
+            <span class="status-pill amber">内置 5 单元 15 谱</span>
+          </div>
+          <h3>练习模式 · 五线谱认音与节奏两轮闯关</h3>
+          <p>
+            零基础可直接点选本地原创短谱，或从 MIDI / 已保存创作导入片段。五线谱旁常驻键位指南，先完成「认音轮」（允许出错后纠正，同时保留首次准确率），再进入「节奏轮」跟随节拍器完成跟弹。
+          </p>
+          <ul class="feature-checklist">
+            <li>专属练习键位：白键 <code>s d f g h j k l</code>（<code>l</code> 恒为高八度 C）</li>
+            <li>黑键 <code>e r y u i</code>；单按 <code>Shift / 空格</code> 切八度（3–5 档）</li>
+            <li>按住 <code>Shift / 空格</code> 弹音符叠加八度副音（组合可达 C2–C7）</li>
+            <li>完整记录首次准确率、纠正历史、准拍 / 偏早 / 偏晚与休止误按</li>
+          </ul>
+          <button type="button" class="btn-outline full-width" data-goto-mode="practice">进入识谱与节奏练习 →</button>
+        </article>
+
+        <article class="pillar-card">
+          <div class="pillar-card-top">
+            <span class="pillar-index">MODE 03</span>
+            <span class="status-pill terracotta">支持 32 声部复调</span>
+          </div>
+          <h3>扒谱模式 · 钢琴音频提取、校对与成谱</h3>
+          <p>
+            上传 MP3 / PCM WAV，选取最长 60 秒片段。独奏钢琴由 Transkun 2.0.1 直接转录；混音由 Demucs 六声部分离出钢琴轨并强制试听确认后再继续。支持片段边界截断诊断与动态多声部 MusicXML 导出。
+          </p>
+          <ul class="feature-checklist">
+            <li>选段交集处理：持续音在终点截断、补帧外音符仅保留于原始 MIDI</li>
+            <li>同一定位轴切换对照：原始选段 / 分离钢琴 / SoundFont 校对 MIDI</li>
+            <li>音符级表格编辑：起止秒数、MIDI 音高、力度、左右手分配与撤销</li>
+            <li>确认 BPM、拍号、第一强拍与调号，支持每手最多 32 声部复调成谱</li>
+          </ul>
+          <button type="button" class="btn-outline full-width" data-goto-mode="transcription">进入乐曲键盘扒谱 →</button>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <!-- =====================================================================
+       VIEW 01: 创作工作台 (CREATION WORKSPACE)
+       ===================================================================== -->
+  <div id="view-creation" class="mode-view" aria-label="创作工作台" hidden>
+    <div class="studio-layout">
+      <!-- 左侧歌曲与工程管理栏 -->
+      <aside class="project-sidebar" aria-label="歌曲工程目录">
+        <div class="sidebar-section-top">
+          <button type="button" class="btn-primary full-width" id="newSongBtn">＋ 新建歌曲工程</button>
+        </div>
+
+        <div class="sidebar-group-header">
+          <span>我的本地歌曲 (data/)</span>
+          <strong id="songCountBadge">3</strong>
+        </div>
+
+        <div class="song-list" id="songListContainer" role="listbox" aria-label="本地歌曲列表"></div>
+
+        <div class="sidebar-utilities">
+          <button type="button" class="sidebar-util-btn" id="openTrashModalBtn">
+            <span>🗑 歌曲回收站 (data/.trash)</span>
+            <em id="trashCountBadge">1</em>
+          </button>
+          <button type="button" class="sidebar-util-btn" id="openHistoryModalBtn">
+            <span>◷ 不可变历史版本</span>
+            <em id="revisionCountBadge">v4</em>
+          </button>
+        </div>
+
+        <div class="sidebar-footnote">
+          <div class="footnote-status">
+            <span class="dot-live"></span>
+            <strong>显示名与目录 ID 分离</strong>
+          </div>
+          <p>同名歌曲互不覆盖。每次修改需显式点击「保存歌曲」写入不可变版本。</p>
+        </div>
+      </aside>
+
+      <!-- 右侧主创作区 -->
+      <div class="studio-main">
+        <!-- 歌曲工作条 -->
+        <div class="project-topbar">
+          <div class="project-crumb">
+            <span class="crumb-root">我的歌曲</span>
+            <span class="crumb-sep">/</span>
+            <strong id="activeSongTitle">周末的落日列车</strong>
+            <code class="song-id-pill" id="activeSongIdPill">data/song_8f3a91c2</code>
+          </div>
+
+          <div class="step-Verify-tabs" role="tablist" aria-label="创作三步流程">
+            <button type="button" class="step-pill active" data-step="inputs" role="tab" aria-selected="true">
+              <b>01</b> 收集灵感与 AI 生成
+            </button>
+            <button type="button" class="step-pill" data-step="edit" role="tab" aria-selected="false">
+              <b>02</b> 演奏编辑与歌词对应
+            </button>
+            <button type="button" class="step-pill" data-step="export" role="tab" aria-selected="false">
+              <b>03</b> 演唱合成、审核与导出
+            </button>
+          </div>
+
+          <div class="project-actions">
+            <span class="save-indicator" id="creationSaveBadge" data-dirty="false">已保存 · v4</span>
+            <button type="button" class="btn-primary btn-sm" id="saveSongBtn">保存歌曲</button>
+          </div>
+        </div>
+
+        <!-- -----------------------------------------------------------------
+             STEP 01: 收集灵感与 AI 编曲 (INPUTS & AI GENERATION)
+             ----------------------------------------------------------------- -->
+        <section id="creation-step-inputs" class="creation-step active" aria-label="收集灵感与 AI 编曲">
+          <div class="step-banner">
+            <span class="banner-tag">歌词谱曲规则 · lyric-motifs-v1</span>
+            <p>有歌词时默认一次覆盖歌词框全部非空行（上限 64 行 / 1024 字词），时长按全文编配安排；无歌词时先生成 60 秒短曲，人工审核通过后可发起 3 分 15 秒整曲扩展。</p>
+          </div>
+
+          <div class="creation-two-col">
+            <!-- 左列：虚拟电子琴录制 + 歌词输入 -->
+            <div class="col-stack">
+              <!-- 卡片 1：虚拟电子琴与旋律录制 -->
+              <article class="studio-card">
+                <div class="card-head">
+                  <div>
+                    <span class="step-num-badge">STEP 1A</span>
+                    <h2>试着弹一小段 · 模拟电子键盘</h2>
+                  </div>
+                  <span class="card-badge">电脑按键 A–K / W E T Y U</span>
+                </div>
+                <p class="card-sub">
+                  点击下方屏幕琴键，或直接按电脑键盘演奏（在输入框打字时不会误触琴键）。你可以随时切换四大初始声部音色：
+                </p>
+
+                <!-- 乐器声部切换与八度控制 -->
+                <div class="synth-control-bar">
+                  <div class="family-tabs" id="creationFamilyTabs" role="group" aria-label="录制声部选择">
+                    <button type="button" class="family-tab active" data-family="keyboard">🎹 键盘 (原声钢琴)</button>
+                    <button type="button" class="family-tab" data-family="drums">🥁 鼓组 (GM 打击乐)</button>
+                    <button type="button" class="family-tab" data-family="guitar">🎸 吉他 (尼龙弦)</button>
+                    <button type="button" class="family-tab" data-family="bass">🎻 贝斯 (指弹贝斯)</button>
+                  </div>
+                  <div class="octave-controls" id="creationOctaveControls">
+                    <button type="button" class="btn-xs" id="octDownBtn">－ 低八度</button>
+                    <span class="octave-readout" id="creationOctaveLabel">基准：C4 (MIDI 60)</span>
+                    <button type="button" class="btn-xs" id="octUpBtn">＋ 高八度</button>
+                  </div>
+                </div>
+
+                <!-- 拟物高精度交互琴键 -->
+                <div class="hardware-keyboard-shell">
+                  <div class="hardware-strip">
+                    <span id="activeVoiceReadout">当前声部：键盘 · 原声钢琴 (Program 0)</span>
+                    <span id="pressedNotesReadout">当前按下：无</span>
+                  </div>
+                  <div class="piano-keybed" id="creationPianoKeybed" aria-label="创作模式电子琴键盘"></div>
+                </div>
+
+                <!-- 录制控制栏 -->
+                <div class="transport-bar">
+                  <button type="button" class="btn-record" id="recordToggleBtn">● 开始录制片段</button>
+                  <button type="button" class="btn-secondary" id="playRecordedBtn">▷ 回放已录片段</button>
+                  <button type="button" class="btn-ghost" id="clearRecordedBtn">清空重录</button>
+                  <button type="button" class="btn-outline" id="commitRecordingToScoreBtn">把片段加入编曲时间轴 →</button>
+                  <span class="record-counter" id="recordedCountBadge">已录 8 个音符 · 4.2 秒</span>
+                </div>
+
+                <!-- 旋律参与方式约束 -->
+                <div class="constraint-box">
+                  <label class="form-label" for="melodyModeSelect">
+                    这段演奏片段如何参与 AI 编曲？
+                  </label>
+                  <select id="melodyModeSelect" class="form-select">
+                    <option value="preserve">完整保留原演奏前缀（音高/秒级时间/力度/Program 不变），随后向后延展</option>
+                    <option value="extend">依据原始旋律走向与动机自由改编延展</option>
+                  </select>
+                  <p class="form-hint">
+                    第四阶段保障：选择「完整保留原演奏」时，程序直接锁定原演奏音符作为参考窗口前缀，模型仅生成参考窗口之后的延展部分。
+                  </p>
+                </div>
+              </article>
+
+              <!-- 卡片 2：全文歌词输入 -->
+              <article class="studio-card">
+                <div class="card-head">
+                  <div>
+                    <span class="step-num-badge">STEP 1B</span>
+                    <h2>带上你的歌词 · 一次覆盖全文</h2>
+                  </div>
+                  <div class="card-head-actions">
+                    <button type="button" class="btn-xs" id="loadSampleLyricsBtn">填入示例歌词</button>
+                    <label class="btn-xs upload-label">
+                      ↑ 上传 UTF-8 TXT
+                      <input type="file" id="lyricsFileInput" accept=".txt,text/plain" hidden />
+                    </label>
+                  </div>
+                </div>
+
+                <textarea
+                  id="lyricsTextarea"
+                  class="form-textarea lyrics-editor"
+                  rows="6"
+                  placeholder="在这里粘贴或输入歌词（支持最多 64 非空行、1024 字词）……"
+                >晚风吹过站台的灯光
+车窗倒映着年少的模样
+挥手告别昨日的迷茫
+背上行囊奔向远方
+哪怕旅途偶有风雨阻挡
+心底依然向往那片晴朗</textarea>
+
+                <div class="lyrics-meta-bar">
+                  <div class="lyrics-counters">
+                    <span class="counter-pill" id="lyricStatsPill">已启用全文谱曲：6 行 · 50 / 1024 字词（上限 64 行）</span>
+                  </div>
+                  <div class="lyrics-mode-btns">
+                    <button type="button" class="btn-xs" id="toggleUseLyricsBtn" data-using="true">切换为：本次不使用歌词（仅器乐）</button>
+                  </div>
+                </div>
+
+                <div class="lyric-preview-lines" id="lyricPreviewLines" aria-label="非空歌词行编号预览"></div>
+              </article>
+            </div>
+
+            <!-- 右列：主题情感 + AI 编曲生成器 -->
+            <div class="col-stack">
+              <article class="studio-card">
+                <div class="card-head">
+                  <div>
+                    <span class="step-num-badge">STEP 1C</span>
+                    <h2>想表达什么主题与音乐感觉？</h2>
+                  </div>
+                  <span class="card-badge">风格与歌词情绪独立</span>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="themeInput">作品主题</label>
+                  <input
+                    id="themeInput"
+                    type="text"
+                    class="form-input"
+                    value="毕业季傍晚的列车，告别旧时光奔赴新生活"
+                    placeholder="例如：毕业后，奔向各自的生活"
+                  />
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="emotionInput">情感与期望的曲风呈现</label>
+                  <textarea
+                    id="emotionInput"
+                    class="form-textarea"
+                    rows="4"
+                    placeholder="描述节奏感、明暗色彩与配器氛围……"
+                  >歌词有一点离别的不舍，但音乐希望是温暖明亮的轻快流行摇滚（约 108 BPM），电钢琴清澈铺底，木吉他分解和弦推进，副歌鼓点富有朝气。</textarea>
+                  <p class="form-hint">
+                    优先级说明：同时输入歌词、情感与旋律时，允许悲伤或离别歌词搭配积极明亮的曲风，不会用歌词字面情绪覆盖你要求的音乐风格。
+                  </p>
+                </div>
+
+                <div class="inspiration-summary-box">
+                  <div>
+                    <strong>当前创作输入汇总</strong>
+                    <p id="inputSummaryText">8 个录制音符（完整保留原演奏） · 6 行歌词（50 字词） · 温暖轻快流行摇滚</p>
+                  </div>
+                  <button type="button" class="btn-secondary btn-sm" id="saveInputsBtn">保存创作输入</button>
+                </div>
+              </article>
+
+              <!-- AI 编曲候选生成与对比面板 -->
+              <article class="studio-card ai-generator-card">
+                <div class="card-head">
+                  <div>
+                    <span class="step-num-badge accent">AI ARRANGER</span>
+                    <h2>生成四声部 MIDI 编曲候选</h2>
+                  </div>
+                  <span class="model-status-tag">DeepSeek · lyric-motifs-v1</span>
+                </div>
+
+                <div class="quota-notice">
+                  <strong>调用与额度透明提示：</strong>
+                  <span>正式环境中会向 DeepSeek 发送所选主题、情感、录制片段与歌词（单次上限 32768 输出 token，不自动重试）。当前原型提供完整候选生成与试听演示。</span>
+                </div>
+
+                <div class="ai-trigger-row">
+                  <button type="button" class="btn-primary btn-lg full-width" id="generateAiCandidateBtn">
+                    ✦ 生成四声部编曲候选（键盘 / 鼓 / 吉他 / 贝斯）
+                  </button>
+                </div>
+
+                <!-- 候选结果卡片 -->
+                <div class="candidate-panel" id="aiCandidatePanel">
+                  <div class="candidate-header">
+                    <div>
+                      <span class="candidate-badge">候选 #cand_04 · 全文歌词谱曲</span>
+                      <h3>温暖流行摇滚四声部编配（108 BPM · 4/4 · C 大调）</h3>
+                    </div>
+                    <span class="candidate-duration">时长 01:18 · 342 音符</span>
+                  </div>
+
+                  <div class="candidate-checks">
+                    <span class="check-chip pass">✓ 原演奏前缀 8 音符零偏差保留</span>
+                    <span class="check-chip pass">✓ 6 行 50 字词 100% 绑定主旋律</span>
+                    <span class="check-chip pass">✓ 行间换气 ≥ 1.0 拍</span>
+                    <span class="check-chip pass">✓ 主旋律音域 E4–E5（适合演唱）</span>
+                  </div>
+
+                  <p class="candidate-summary">
+                    <strong>编配结构说明：</strong>前奏 2 小节保留原录制钢琴动机 → 主歌 A 段（第 1–4 行，电钢琴 + 尼龙吉他分解 + 轻踩镲） → 间奏 1 小节过渡 → 副歌 B 段（第 5–6 行，加入指弹贝斯根音推进与完整律动鼓组） → 尾奏 2 小节收束延长。
+                  </p>
+
+                  <div class="candidate-actions">
+                    <button type="button" class="btn-secondary" id="previewCandidateBtn">▶ 试听候选四声部</button>
+                    <button type="button" class="btn-primary" id="applyCandidateBtn">✓ 采用此候选为新版本并进入编辑 →</button>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <!-- -----------------------------------------------------------------
+             STEP 02: 演奏与编辑 (PIANO ROLL, LYRIC ALIGNMENT & PHRASE V2)
+             ----------------------------------------------------------------- -->
+        <section id="creation-step-edit" class="creation-step" aria-label="演奏与编辑" hidden>
+          <!-- 顶部播放控制与工具栏 -->
+          <div class="daw-toolbar">
+            <div class="daw-transport">
+              <button type="button" class="btn-primary" id="playScoreBtn">▶ 试听当前编曲</button>
+              <button type="button" class="btn-ghost" id="stopScoreBtn">■ 停止</button>
+              <div class="timecode-box">
+                <span class="timecode-current" id="dawCurrentTime">00:00</span>
+                <span class="timecode-sep">/</span>
+                <span class="timecode-total" id="dawTotalTime">00:16</span>
+              </div>
+            </div>
+
+            <div class="daw-meta-controls">
+              <label class="inline-control">
+                <span>速度 BPM</span>
+                <input type="number" id="scoreBpmInput" min="40" max="240" value="108" />
+              </label>
+              <span class="meter-badge">4/4 拍 · 480 PPQ</span>
+            </div>
+
+            <div class="daw-history-actions">
+              <button type="button" class="btn-xs" id="scoreUndoBtn">↶ 撤销</button>
+              <button type="button" class="btn-xs" id="scoreRedoBtn">↷ 重做</button>
+              <label class="btn-xs upload-label">
+                ↑ 导入多轨 MIDI
+                <input type="file" id="midiImportInput" accept=".mid,.midi" hidden />
+              </label>
+            </div>
+          </div>
+
+          <!-- 声部混音台 + 钢琴卷帘网格 -->
+          <div class="daw-workspace-grid">
+            <!-- 左侧四声部混音器 -->
+            <aside class="mixer-rack" aria-label="四声部轨道控制">
+              <div class="rack-header">
+                <h2>乐器声部轨道</h2>
+                <small>点击切换当前编辑声部；S 独奏 / M 静音</small>
+              </div>
+              <div id="mixerTracksContainer" class="mixer-tracks-list"></div>
+            </aside>
+
+            <!-- 右侧交互式钢琴卷帘 (Piano Roll) 与单音符检查器 -->
+            <article class="piano-roll-card">
+              <div class="roll-card-header">
+                <div>
+                  <span class="active-track-dot" id="rollTrackDot"></span>
+                  <h2 id="rollTrackTitle">键盘主旋律 · 音符时间轴 (Piano Roll)</h2>
+                </div>
+                <span class="roll-hint">点击音符选中并试听；点击空白网格新增音符（1/4 拍对齐）</span>
+              </div>
+
+              <div class="piano-roll-viewport" id="pianoRollViewport">
+                <svg id="pianoRollSvg" class="piano-roll-svg" viewBox="0 0 920 320" role="img" aria-label="可交互钢琴卷帘音符网格"></svg>
+              </div>
+
+              <!-- 选中音符精细编辑器 -->
+              <form class="note-inspector" id="noteInspectorForm">
+                <div class="inspector-title">
+                  <strong id="selectedNoteLabel">已选中：E4 (MIDI 64) · 绑定字「晚」</strong>
+                </div>
+                <label>
+                  <span>音高 (MIDI 0-127)</span>
+                  <input type="number" id="inspPitch" min="0" max="127" value="64" />
+                </label>
+                <label>
+                  <span>开始位置 (拍)</span>
+                  <input type="number" id="inspStart" min="0" step="0.25" value="2.0" />
+                </label>
+                <label>
+                  <span>时长 (拍)</span>
+                  <input type="number" id="inspDuration" min="0.25" step="0.25" value="1.0" />
+                </label>
+                <label>
+                  <span>力度 (1-127)</span>
+                  <input type="number" id="inspVelocity" min="1" max="127" value="92" />
+                </label>
+                <div class="inspector-btns">
+                  <button type="submit" class="btn-secondary btn-sm">应用音符修改</button>
+                  <button type="button" class="btn-danger-ghost btn-sm" id="deleteNoteBtn">删除音符</button>
+                </div>
+              </form>
+            </article>
+          </div>
+
+          <!-- 下方双栏：歌词与旋律对应练唱 + 乐句与转音 v2 原子编辑 -->
+          <div class="creation-two-col" style="margin-top: 22px;">
+            <!-- 歌词对应修复与慢速循环练唱 -->
+            <article class="studio-card">
+              <div class="card-head">
+                <div>
+                  <span class="step-num-badge">STAGE 4 & 5A</span>
+                  <h2>歌词与主旋律对应 · 逐句慢速练唱</h2>
+                </div>
+                <span class="card-badge">允许一字多音与无词间奏</span>
+              </div>
+              <p class="card-sub">
+                核对每个字词绑定的主旋律音符 ID。支持 <code>1.0× / 0.75×</code> 变速试听与单句循环跟唱（变速仅作用于试听，不改变导出 MIDI）。
+              </p>
+
+              <div class="lyric-practice-toolbar">
+                <div class="speed-switch" role="group" aria-label="练唱速度">
+                  <button type="button" class="btn-xs active" data-speed="1">1.0× 原速试唱</button>
+                  <button type="button" class="btn-xs" data-speed="0.75">0.75× 慢速练唱</button>
+                </div>
+                <label class="checkbox-inline">
+                  <input type="checkbox" id="loopLineCheckbox" checked />
+                  <span>单句循环播放</span>
+                </label>
+                <button type="button" class="btn-secondary btn-xs" id="playCurrentLyricLineBtn">▶ 试听当前选中句</button>
+              </div>
+
+              <div class="lyric-alignment-list" id="lyricAlignmentList"></div>
+            </article>
+
+            <!-- 乐句与转音 (v2 试验) + 自然语言整曲修改 -->
+            <div class="col-stack">
+              <article class="studio-card">
+                <div class="card-head">
+                  <div>
+                    <span class="step-num-badge accent">PHRASE V2 · 试验</span>
+                    <h2>按字音符组（转音 / 延音）原子编辑</h2>
+                  </div>
+                  <span class="card-badge">一次撤销可恢复</span>
+                </div>
+                <p class="card-sub">
+                  针对选中歌词字组调整旋律表现力，自动检测换气与重叠影响，预览无误后应用到草稿：
+                </p>
+
+                <div class="phrase-editor-box">
+                  <div class="phrase-target-row">
+                    <span>当前目标字词：</span>
+                    <strong id="activeWordGroupTitle">第 1 行 · 第 2 字「风」 (绑定音符: G4 → A4 一字双音转音)</strong>
+                  </div>
+                  <div class="phrase-action-grid">
+                    <button type="button" class="btn-outline btn-sm" id="addMelismaBtn">＋ 添加平滑上行转音 (一字双音)</button>
+                    <button type="button" class="btn-outline btn-sm" id="simplifyOneNoteBtn">－ 简化为一字一音</button>
+                    <button type="button" class="btn-outline btn-sm" id="lengthenTailBtn">↔ 句尾收束音延长 +0.5 拍</button>
+                  </div>
+                  <div class="impact-preview" id="phraseImpactPreview">
+                    <span>预览诊断：主旋律单声部无重叠 · 行尾换气余量 1.50 拍（合格） · 原演奏前缀未受影响。</span>
+                  </div>
+                </div>
+              </article>
+
+              <article class="studio-card">
+                <div class="card-head">
+                  <div>
+                    <span class="step-num-badge">NATURAL LANGUAGE MODIFY</span>
+                    <h2>自然语言整曲修改</h2>
+                  </div>
+                  <span class="card-badge">基于当前版本演进</span>
+                </div>
+                <div class="form-group">
+                  <input
+                    type="text"
+                    id="nlModifyInput"
+                    class="form-input"
+                    value="让副歌部分的贝斯律动更明显一些，尾奏钢琴增加高音区分解和弦收束"
+                    placeholder="用一句话描述希望对整首编曲做出的调整……"
+                  />
+                </div>
+                <button type="button" class="btn-secondary full-width" id="runNlModifyBtn">
+                  ✦ 生成整曲修改候选（保留历史版本可回退）
+                </button>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <!-- -----------------------------------------------------------------
+             STEP 03: 保存、中文演唱、人工审核与导出 (VOCALS, REVIEW & EXPORT)
+             ----------------------------------------------------------------- -->
+        <section id="creation-step-export" class="creation-step" aria-label="保存、演唱与导出" hidden>
+          <div class="creation-two-col">
+            <!-- 左列：中文演唱合成 (绮萱 Qixuan v2.7.0) + 多音字修正 -->
+            <div class="col-stack">
+              <article class="studio-card">
+                <div class="card-head">
+                  <div>
+                    <span class="step-num-badge accent">DIFFSINGER VOCAL</span>
+                    <h2>中文演唱合成 · 绮萱 Qixuan v2.7.0</h2>
+                  </div>
+                  <span class="card-badge">PC-NSF-HiFiGAN · 普通话独唱</span>
+                </div>
+                <p class="card-sub">
+                  按当前已保存版本的歌词与主旋律音符对应合成普通话独唱。支持为多音字填写无声调拼音修正，并可切换单听人声或与伴奏合听：
+                </p>
+
+                <div class="polyphone-box">
+                  <div class="polyphone-head">
+                    <strong>多音字发音检查与无声调拼音修正</strong>
+                    <span class="muted">修改后需重新合成对应版本演唱</span>
+                  </div>
+                  <div class="polyphone-grid">
+                    <label class="poly-item">
+                      <span>第 4 行「背上<b>行</b>囊」</span>
+                      <select id="polyXingSelect" class="form-select">
+                        <option value="xing" selected>xing（行囊 / 行走）</option>
+                        <option value="hang">hang（行业 / 银行）</option>
+                      </select>
+                    </label>
+                    <label class="poly-item">
+                      <span>第 2 行「年<b>少</b>的模样」</span>
+                      <select id="polyShaoSelect" class="form-select">
+                        <option value="shao" selected>shao（年少 / 多少）</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="vocal-player-deck">
+                  <div class="vocal-mode-pills" role="group" aria-label="演唱试听模式">
+                    <button type="button" class="timbre-pill active" data-vmode="mix">🎤+🎹 人声与伴奏合听</button>
+                    <button type="button" class="timbre-pill" data-vmode="vocal">🎤 仅听独立人声</button>
+                    <button type="button" class="timbre-pill" data-vmode="inst">🎹 仅听器乐伴奏</button>
+                  </div>
+                  <div class="vocal-actions-row">
+                    <button type="button" class="btn-primary" id="synthesizeVocalBtn">✦ 合成当前版本中文演唱 (v4)</button>
+                    <button type="button" class="btn-secondary" id="playVocalDemoBtn">▶ 试听合成效果</button>
+                  </div>
+                  <p class="form-hint" id="vocalStatusHint">
+                    已绑定版本 v4 · 歌手：绮萱 Qixuan v2.7.0（非商业演示许可） · 50 个汉字全部对齐主旋律。
+                  </p>
+                </div>
+              </article>
+
+              <!-- 人工试听与试唱审核面板 + 3:15 整曲扩展 -->
+              <article class="studio-card">
+                <div class="card-head">
+                  <div>
+                    <span class="step-num-badge">MANUAL ACCEPTANCE</span>
+                    <h2>人工试听与可唱性审核</h2>
+                  </div>
+                  <span class="card-badge" id="reviewStatusBadge">当前状态：待人工确认</span>
+                </div>
+                <p class="card-sub">
+                  程序结构校验通过不代表音乐重音、旋律发展或实际可唱性达标。请亲自试听并勾选核对项：
+                </p>
+                <div class="review-checklist">
+                  <label class="check-row">
+                    <input type="checkbox" class="review-check" checked />
+                    <span>旋律走向自然，原演奏片段衔接无突兀感</span>
+                  </label>
+                  <label class="check-row">
+                    <input type="checkbox" class="review-check" checked />
+                    <span>中文歌词四声重音与旋律起伏贴合，行间换气充足</span>
+                  </label>
+                  <label class="check-row">
+                    <input type="checkbox" class="review-check" checked />
+                    <span>键盘、鼓、吉他、贝斯四声部平衡，曲风符合「温暖轻快流行摇滚」</span>
+                  </label>
+                </div>
+                <div class="review-actions">
+                  <button type="button" class="btn-primary" id="approveRevisionBtn">✓ 确认当前版本 v4 人工审核通过</button>
+                  <button type="button" class="btn-outline" id="triggerFullSongBtn">✦ 基于已审核短曲生成 3 分 15 秒无词整曲 →</button>
+                </div>
+              </article>
+            </div>
+
+            <!-- 右列：版本绑定文件与多格式音频导出 -->
+            <div class="col-stack">
+              <article class="studio-card">
+                <div class="card-head">
+                  <div>
+                    <span class="step-num-badge">VERSION-BOUND EXPORTS</span>
+                    <h2>带走你的音乐 · MIDI / WAV / MP3</h2>
+                  </div>
+                  <span class="card-badge">绑定已保存版本 v4</span>
+                </div>
+
+                <dl class="spec-grid">
+                  <dt>工程目录</dt>
+                  <dd><code>data/song_8f3a91c2/</code>（含原文件、不可变版本与渲染记录）</dd>
+                  <dt>器乐渲染规则</dt>
+                  <dd>完整乐谱时间轴 + <strong>3.0 秒自然尾音</strong> + 末尾 <strong>50ms 平滑淡出</strong></dd>
+                  <dt>音色引擎</dt>
+                  <dd>GeneralUser GS (BETA 标记) · FluidSynth 2.6.1 → FFmpeg 9.0.2</dd>
+                </dl>
+
+                <div class="export-cards-stack">
+                  <div class="export-item-card">
+                    <div>
+                      <strong>♫ 标准多轨 MIDI (.mid)</strong>
+                      <p>保留全部四个声部轨道名称、Program/Bank 乐器信息、通道 10 打击乐语义与歌词标记。</p>
+                    </div>
+                    <button type="button" class="btn-secondary" id="exportMidiBtn">导出 MIDI ↓</button>
+                  </div>
+
+                  <div class="export-item-card">
+                    <div>
+                      <strong>◈ 器乐无损 WAV & 压缩 MP3</strong>
+                      <p>可选「完整四声部」或「按当前独奏/静音混音」渲染，导出前支持直接试听渲染结果。</p>
+                    </div>
+                    <div class="export-btn-group">
+                      <button type="button" class="btn-secondary" id="renderAudioBtn">渲染并试听</button>
+                      <button type="button" class="btn-outline" id="exportMp3Btn">下载 MP3 ↓</button>
+                    </div>
+                  </div>
+
+                  <div class="export-item-card">
+                    <div>
+                      <strong>🎤 独立人声 WAV & 人声伴奏混音 MP3</strong>
+                      <p>绮萱合成干声（Vocal Stem）与完整伴奏立体声混音，严格绑定当前歌词与旋律版本。</p>
+                    </div>
+                    <button type="button" class="btn-outline" id="exportVocalMixBtn">下载人声混音 ↓</button>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       VIEW 02: 识谱与节奏练习 (PRACTICE WORKSPACE)
+       ===================================================================== -->
+  <main id="view-practice" class="mode-view" aria-label="识谱与节奏练习工作台" hidden>
+    <div class="practice-container">
+      <!-- 顶部介绍与本地单元选择 -->
+      <section class="practice-hero-bar">
+        <div>
+          <span class="eyebrow">SIGHT-READING & RHYTHM TRAINING</span>
+          <h1>识谱与节奏练习 · 先认准每一个音，再跟上节拍。</h1>
+          <p>内置 5 个本地基础单元、15 条原创短谱（2–4 小节），无需上传 MIDI 即可开始；也支持导入自选 MIDI 片段。首次答案与纠正记录分别保存。</p>
+        </div>
+        <div class="practice-source-switcher">
+          <button type="button" class="btn-secondary btn-sm" id="importPracticeMidiBtn">↑ 导入自选 MIDI</button>
+          <button type="button" class="btn-ghost btn-sm" id="copyFromSongToPracticeBtn">⇄ 从已保存创作复制片段</button>
+        </div>
+      </section>
+
+      <!-- 5 单元 15 谱课程矩阵 -->
+      <section class="studio-card unit-catalog-card" aria-label="本地基础单元目录">
+        <div class="card-head">
+          <div>
+            <span class="step-num-badge">BUILTIN CURRICULUM</span>
+            <h2>本地基础单元（5 单元 · 15 条原创固定谱）</h2>
+          </div>
+          <span class="card-badge">无需选轨或量化 · 进度随版本绑定</span>
+        </div>
+
+        <div class="unit-tabs" id="practiceUnitTabs" role="tablist" aria-label="练习单元切换"></div>
+        <div class="exercise-cards-row" id="practiceExerciseCards"></div>
+      </section>
+
+      <!-- 核心练习区：左侧五线谱 + 右侧常驻键位指南 (遵循第 37 条规则) -->
+      <section class="practice-stage-grid" aria-label="五线谱与键位对照练习区">
+        <!-- 左侧：五线谱视图 + 两轮闯关控制 -->
+        <article class="studio-card score-stage-card">
+          <div class="card-head">
+            <div>
+              <span class="step-num-badge accent" id="activePracticeUnitTag">单元一 · 练习 1.2</span>
+              <h2 id="activePracticeTitle">C4 到 C5 上行与跳进认谱（4/4 拍 · 高音谱表）</h2>
+            </div>
+            <div class="score-audition-btns">
+              <button type="button" class="btn-xs" id="listenPracticeScoreBtn">🔊 试听标准示范</button>
+              <button type="button" class="btn-xs" id="resetPracticeRoundBtn">↺ 重新开始本轮</button>
+            </div>
+          </div>
+
+          <!-- 两轮状态指示条 -->
+          <div class="round-progress-strip">
+            <div class="round-step active" id="roundIndicator1">
+              <span class="round-dot">1</span>
+              <div>
+                <strong>第一轮：认音练习（不限时间，允许出错后纠正）</strong>
+                <small id="recognitionStatsText">当前目标：第 1 / 8 个起音 · 首次准确率：100%</small>
+              </div>
+            </div>
+            <div class="round-arrow" aria-hidden="true">→</div>
+            <div class="round-step" id="roundIndicator2">
+              <span class="round-dot">2</span>
+              <div>
+                <strong>第二轮：节奏跟弹（认音全对后解锁，跟随预备拍）</strong>
+                <small id="rhythmStatsText">可选 0.5× / 0.75× / 1.0× 速度 · 实时判定准拍与偏移</small>
+              </div>
+            </div>
+            <div class="round-mode-toggle">
+              <button type="button" class="btn-xs" id="switchRoundModeBtn">直接体验第二轮：节奏跟弹 →</button>
+            </div>
+          </div>
+
+          <!-- 动态五线谱 SVG 画布 -->
+          <div class="sheet-music-frame" id="practiceSheetFrame">
+            <svg id="practiceScoreSvg" class="sheet-music-svg" viewBox="0 0 860 220" role="img" aria-label="五线谱练习谱面"></svg>
+          </div>
+
+          <!-- 实时作答反馈横幅 -->
+          <div class="practice-live-feedback" id="practiceFeedbackBanner">
+            <div class="feedback-target">
+              <span>当前待弹目标：</span>
+              <strong id="practiceTargetNoteBadge">C4（请按电脑按键 S 或点击下方琴键）</strong>
+            </div>
+            <div class="feedback-metrics">
+              <span id="practiceFirstAccBadge">首次准确率：--</span>
+              <span id="practiceCorrectionCountBadge">纠正次数：0</span>
+              <span id="practiceTimingOffsetBadge">节奏偏移：待进入节奏轮</span>
+            </div>
+          </div>
+
+          <!-- 节奏轮专属节拍控制（切换到节奏轮时高亮） -->
+          <div class="rhythm-controls-bar" id="rhythmControlsBar">
+            <div class="speed-pills" role="group" aria-label="节奏轮速度">
+              <button type="button" class="btn-xs" data-rspeed="0.5">0.5× 慢速</button>
+              <button type="button" class="btn-xs" data-rspeed="0.75">0.75× 稳速</button>
+              <button type="button" class="btn-xs active" data-rspeed="1.0">1.0× 原速 (96 BPM)</button>
+            </div>
+            <button type="button" class="btn-primary btn-sm" id="startRhythmRoundBtn">▶ 启动 4 拍预备拍并开始节奏跟弹</button>
+            <span class="metronome-visual" id="metronomeVisual">预备拍：● ○ ○ ○</span>
+          </div>
+
+          <!-- 练习模式专属交互琴键（s-l 白键, e r y u i 黑键） -->
+          <div class="practice-keybed-wrap">
+            <div class="practice-octave-bar">
+              <span>当前基础八度：<strong id="practiceBaseOctaveText">第 4 八度 (默认 C4–C5)</strong></span>
+              <span>修饰键状态：<strong id="practiceModifierStateText">无（单按 Shift 降八度 / 单按空格升八度）</strong></span>
+              <div class="octave-manual-btns">
+                <button type="button" class="btn-xs" id="pracOct3Btn">3 档 (C3)</button>
+                <button type="button" class="btn-xs active" id="pracOct4Btn">4 档 (C4)</button>
+                <button type="button" class="btn-xs" id="pracOct5Btn">5 档 (C5)</button>
+              </div>
+            </div>
+            <div class="piano-keybed practice-keybed" id="practicePianoKeybed" aria-label="练习模式专属键盘"></div>
+          </div>
+        </article>
+
+        <!-- 右侧：五线谱旁常驻练习键位说明 (遵循 AGENTS.md 第 37 条规则) -->
+        <aside class="studio-card key-guide-aside" aria-label="练习键位说明">
+          <div class="card-head">
+            <div>
+              <span class="step-num-badge">KEY GUIDE</span>
+              <h2>练习按键说明</h2>
+            </div>
+            <span class="card-badge">五线谱旁常驻对照</span>
+          </div>
+
+          <p class="card-sub">
+            练习模式采用独立键位映射（与创作模式不同），手不离主键盘即可完成单音、八度切换与跨八度双音组合：
+          </p>
+
+          <div class="guide-table-block">
+            <h3>1. 白键映射（默认基础八度 4）</h3>
+            <div class="key-map-grid cols-8">
+              <div class="kcell"><kbd>s</kbd><span>C4</span></div>
+              <div class="kcell"><kbd>d</kbd><span>D4</span></div>
+              <div class="kcell"><kbd>f</kbd><span>E4</span></div>
+              <div class="kcell"><kbd>g</kbd><span>F4</span></div>
+              <div class="kcell"><kbd>h</kbd><span>G4</span></div>
+              <div class="kcell"><kbd>j</kbd><span>A4</span></div>
+              <div class="kcell"><kbd>k</kbd><span>B4</span></div>
+              <div class="kcell highlight"><kbd>l</kbd><span>C5</span></div>
+            </div>
+          </div>
+
+          <div class="guide-table-block">
+            <h3>2. 黑键映射（升降号对应琴键）</h3>
+            <div class="key-map-grid cols-5">
+              <div class="kcell dark"><kbd>e</kbd><span>C♯4 / D♭4</span></div>
+              <div class="kcell dark"><kbd>r</kbd><span>D♯4 / E♭4</span></div>
+              <div class="kcell dark"><kbd>y</kbd><span>F♯4 / G♭4</span></div>
+              <div class="kcell dark"><kbd>u</kbd><span>G♯4 / A♭4</span></div>
+              <div class="kcell dark"><kbd>i</kbd><span>A♯4 / B♭4</span></div>
+            </div>
+          </div>
+
+          <div class="guide-rules-list">
+            <h3>3. 八度切换与双音组合规则</h3>
+            <ul>
+              <li>
+                <strong><code>l</code> 始终是右侧高一个八度的 C：</strong>
+                默认 4 档时 <code>s</code> 为 C4，<code>l</code> 为 C5；弹奏 <code>d + l</code> 即同时触发 D4 + C5。
+              </li>
+              <li>
+                <strong>单按 <code>Shift</code> 或 <code>空格</code> 后松开：</strong>
+                本次未参与音符演奏时，切换基础八度整档（可选 3–5 档，独立音域 C3–C6）。
+              </li>
+              <li>
+                <strong>按住 <code>Shift</code> / <code>空格</code> + 音符键：</strong>
+                同时演奏基础音与低八度 / 高八度副音（组合音域可达 C2–C7），且<strong>不改变</strong>基础八度档位。
+              </li>
+              <li>
+                <strong>防冲突保护：</strong>
+                同时按住两个修饰键时拒绝新音；松开修饰键只释放副音，原基础音保持。
+              </li>
+            </ul>
+          </div>
+
+          <!-- 练习历史记录摘要 -->
+          <div class="practice-records-mini">
+            <h3>最近练习记录 (data/.practice/sessions)</h3>
+            <div id="practiceRecordsList" class="records-mini-list"></div>
+          </div>
+        </aside>
+      </section>
+    </div>
+  </main>
+
+  <!-- =====================================================================
+       VIEW 03: 乐曲键盘扒谱 (TRANSCRIPTION WORKSPACE)
+       ===================================================================== -->
+  <main id="view-transcription" class="mode-view" aria-label="乐曲键盘扒谱工作台" hidden>
+    <div class="studio-layout">
+      <!-- 左侧扒谱工程列表 -->
+      <aside class="project-sidebar" aria-label="扒谱工程列表">
+        <div class="sidebar-section-top">
+          <label class="btn-primary full-width upload-btn-block">
+            ↑ 上传 MP3 / PCM WAV
+            <input type="file" id="transAudioUploadInput" accept=".mp3,.wav,audio/mpeg,audio/wav" hidden />
+          </label>
+          <p class="sidebar-micro-hint">最大 100 MiB / 10 分钟；每次选取 0.05–60 秒处理</p>
+        </div>
+
+        <div class="sidebar-group-header">
+          <span>扒谱工程 (data/.transcriptions)</span>
+          <strong id="transProjectCount">2</strong>
+        </div>
+
+        <div class="song-list" id="transProjectList" role="listbox" aria-label="扒谱工程"></div>
+
+        <div class="sidebar-footnote">
+          <div class="footnote-status">
+            <span class="dot-live"></span>
+            <strong>本地 CPU 推理组件</strong>
+          </div>
+          <p>Transkun 2.0.1（钢琴音符事件提取）+ Demucs 4.0.1 <code>htdemucs_6s</code>（混音六声部钢琴分离）。无需 API 密钥。</p>
+        </div>
+      </aside>
+
+      <!-- 右侧扒谱四步工作流 -->
+      <div class="studio-main">
+        <div class="project-topbar">
+          <div class="project-crumb">
+            <span class="crumb-root">扒谱工程</span>
+            <span class="crumb-sep">/</span>
+            <strong id="activeTransProjectName">Canon_in_D_Pachelbel.mp3</strong>
+            <code class="song-id-pill" id="activeTransSpecBadge">44100 Hz · 立体声 · 总长 184.20s</code>
+          </div>
+          <div class="project-actions">
+            <span class="save-indicator" id="transSaveBadge">当前修订：rev_02 (已成谱)</span>
+            <button type="button" class="btn-primary btn-sm" id="saveTransRevisionBtn">保存校对并更新五线谱</button>
+          </div>
+        </div>
+
+        <div class="trans-workflow-stack">
+          <!-- 步骤 1 & 2：片段选择 + 混音分离试听门禁 + 边界截断报告 -->
+          <div class="creation-two-col">
+            <!-- 1. 选取音频片段与模式 -->
+            <article class="studio-card">
+              <div class="card-head">
+                <div>
+                  <span class="step-num-badge">STEP 01</span>
+                  <h2>选择音频片段与输入类型</h2>
+                </div>
+                <span class="card-badge">单次最多 60.00 秒</span>
+              </div>
+
+              <div class="clip-range-grid">
+                <label class="form-group">
+                  <span class="form-label">开始时间（秒）</span>
+                  <input type="number" id="transStartSec" class="form-input" min="0" max="180" step="0.5" value="0.00" />
+                </label>
+                <label class="form-group">
+                  <span class="form-label">结束时间（秒）</span>
+                  <input type="number" id="transEndSec" class="form-input" min="1" max="60" step="0.5" value="20.00" />
+                </label>
+                <label class="form-group">
+                  <span class="form-label">音频输入类型</span>
+                  <select id="transInputModeSelect" class="form-select">
+                    <option value="solo">独奏钢琴：直接由 Transkun 2.0.1 转录</option>
+                    <option value="mix">混音（试验）：先由 Demucs 分离钢琴并强制试听确认</option>
+                  </select>
+                </label>
+              </div>
+
+              <!-- 模拟波形与选段高亮预览 -->
+              <div class="waveform-box" id="transWaveformBox" aria-label="音频选段波形示意">
+                <div class="waveform-bars" id="transWaveformBars"></div>
+                <div class="waveform-selection" id="transWaveformSelection" style="left: 0%; width: 33%;">
+                  <span>选段 0.00s – 20.00s (共 20.00s)</span>
+                </div>
+              </div>
+
+              <div class="transport-bar">
+                <button type="button" class="btn-secondary" id="playTransClipBtn">▶ 试听所选片段</button>
+                <button type="button" class="btn-primary" id="runTranscriptionJobBtn">✦ 开始转录 / 分离任务</button>
+              </div>
+            </article>
+
+            <!-- 2. 处理状态、混音分离确认门禁与边界求交报告 (遵循第 39、40 条规则) -->
+            <article class="studio-card">
+              <div class="card-head">
+                <div>
+                  <span class="step-num-badge accent">STEP 02 · 门禁与边界诊断</span>
+                  <h2>对照试听与选段边界求交报告</h2>
+                </div>
+                <span class="card-badge" id="transJobStageBadge">状态：处理完成</span>
+              </div>
+
+              <!-- 混音分离确认提示框（当选择 mix 模式时展示门禁交互） -->
+              <div class="separation-gate-box" id="separationGateBox">
+                <strong>混音分离试听门禁（Demucs htdemucs_6s）：</strong>
+                <p>混音分离存在贝斯或吉他串音风险。若切换为「混音」模式，必须先点击「载入这次分离试听」，人工确认钢琴清晰后再点击「我已试听，继续转录」。</p>
+                <div class="gate-actions">
+                  <button type="button" class="btn-xs" id="loadSeparatedAudioBtn">1. 载入这次分离钢琴试听</button>
+                  <button type="button" class="btn-xs btn-primary" id="confirmContinueTransBtn">2. 我已试听，继续转录 →</button>
+                </div>
+              </div>
+
+              <!-- 三路声音同步定位对照 -->
+              <div class="compare-audio-bar">
+                <div class="compare-pills" id="transComparePills" role="group" aria-label="对照音源切换">
+                  <button type="button" class="timbre-pill" data-akind="original">💿 原始选段</button>
+                  <button type="button" class="timbre-pill" data-akind="piano">🎹 分离钢琴 (试验)</button>
+                  <button type="button" class="timbre-pill active" data-akind="midi">♫ 当前校对 MIDI (SoundFont)</button>
+                </div>
+                <button type="button" class="btn-secondary btn-sm" id="playTransCompareBtn">▶ 从定位点试听对照</button>
+              </div>
+
+              <!-- 第 40 条规则：选段边界求交报告 -->
+              <div class="boundary-report-card" data-testid="transcription-boundary-report">
+                <div class="boundary-title">
+                  <strong>✓ 选段边界求交诊断报告（0.00s – 20.00s）</strong>
+                  <span>不移动片段内起音 · 不静默删除原始输出</span>
+                </div>
+                <p>
+                  模型补帧窗口分析：<strong>2 个</strong>片段内起音的末尾持续音已在 20.00s 终点截断（<code>clipped_notes</code>）；
+                  <strong>3 个</strong>完全位于选段外的补帧音符未纳入校对选段（<code>outside_notes</code>），仅完整保留在原始转录 MIDI 中。
+                </p>
+                <div class="boundary-downloads">
+                  <button type="button" class="link-btn" id="dlRawPerformanceMidiBtn">↓ 下载原始转录 MIDI (performance.mid · 含完整补帧与踏板)</button>
+                  <button type="button" class="link-btn" id="dlClipMidiBtn">↓ 下载选段 MIDI (clip.mid · 保留片段内控制信息)</button>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <!-- 步骤 3 & 4：音符校对表格 + 32 声部复调五线谱整理 -->
+          <div class="creation-two-col">
+            <!-- 3. 音符级校对表格 -->
+            <article class="studio-card">
+              <div class="card-head">
+                <div>
+                  <span class="step-num-badge">STEP 03</span>
+                  <h2>校对音符（音高 / 起止秒 / 力度 / 左右手）</h2>
+                </div>
+                <div class="card-head-actions">
+                  <button type="button" class="btn-xs" id="addTransNoteBtn">＋ 添加音符</button>
+                  <button type="button" class="btn-xs" id="undoTransNoteBtn">↶ 撤销</button>
+                </div>
+              </div>
+              <p class="card-sub">
+                时间以选段起点为 0.00 秒；音域不限练习键位，不自动删音、改调或吸附音阶。点击任意行可试听该音符：
+              </p>
+
+              <div class="trans-table-wrap">
+                <table class="trans-note-table" aria-label="扒谱音符校对表">
+                  <thead>
+                    <tr>
+                      <th>音名 / MIDI</th>
+                      <th>开始 (秒)</th>
+                      <th>结束 (秒)</th>
+                      <th>力度</th>
+                      <th>左右手分配</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="transNoteTableBody"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <!-- 4. 确认节拍参数与多声部五线谱 (v2 动态 voice_stride，每手最多 32 声部) -->
+            <article class="studio-card">
+              <div class="card-head">
+                <div>
+                  <span class="step-num-badge accent">STEP 04 · DYNAMIC VOICE STRIDE v2</span>
+                  <h2>确认节拍并整理高低音大谱表</h2>
+                </div>
+                <span class="card-badge">每手最多支持 32 声部</span>
+              </div>
+
+              <div class="notation-params-grid">
+                <label class="form-group">
+                  <span class="form-label">速度 BPM</span>
+                  <input type="number" id="transBpmInput" class="form-input" min="40" max="220" value="72" />
+                </label>
+                <label class="form-group">
+                  <span class="form-label">拍号</span>
+                  <select id="transMeterSelect" class="form-select">
+                    <option value="4/4" selected>4/4 拍</option>
+                    <option value="3/4">3/4 拍</option>
+                    <option value="6/8">6/8 拍</option>
+                  </select>
+                </label>
+                <label class="form-group">
+                  <span class="form-label">第一强拍偏移 (秒)</span>
+                  <input type="number" id="transDownbeatInput" class="form-input" step="0.05" value="0.25" />
+                </label>
+                <label class="form-group">
+                  <span class="form-label">量化网格</span>
+                  <select id="transGridSelect" class="form-select">
+                    <option value="120" selected>十六分音符 (120 tick)</option>
+                    <option value="60">三十二分音符 (60 tick)</option>
+                    <option value="160">八分三连音 (160 tick)</option>
+                    <option value="240">八分音符 (240 tick)</option>
+                  </select>
+                </label>
+                <label class="form-group">
+                  <span class="form-label">调号 (升降号)</span>
+                  <select id="transKeySelect" class="form-select">
+                    <option value="2" selected>D 大调 (2 个升号)</option>
+                    <option value="0">C 大调 (无升降号)</option>
+                    <option value="-1">F 大调 (1 个降号)</option>
+                    <option value="1">G 大调 (1 个升号)</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="polyphony-report-strip" id="transPolyphonyStrip">
+                <span><strong>v2 多声部成谱报告：</strong>右手实际使用 <strong>2</strong> 个声部，左手实际使用 <strong>2</strong> 个声部（上限各 32 声部） · 最大量化偏移 <strong>5.8 毫秒</strong></span>
+              </div>
+
+              <!-- 扒谱高低音大谱表 SVG 预览 -->
+              <div class="sheet-music-frame grand-staff-frame">
+                <svg id="transGrandStaffSvg" class="sheet-music-svg" viewBox="0 0 820 250" role="img" aria-label="扒谱整理后的高低音大谱表"></svg>
+              </div>
+
+              <div class="trans-export-bar">
+                <button type="button" class="btn-primary" id="rebuildTransScoreBtn">✓ 确认参数，保存修订并刷新五线谱</button>
+                <button type="button" class="btn-secondary" id="dlTransScoreMidiBtn">↓ 下载整理 MIDI (score.mid)</button>
+                <button type="button" class="btn-secondary" id="dlTransMusicXmlBtn">↓ 下载 MusicXML (.musicxml)</button>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- =====================================================================
+       MODALS (新建歌曲 / 历史版本 / 歌曲回收站)
+       ===================================================================== -->
+  <dialog class="studio-modal" id="newSongModal" aria-label="新建一首歌曲">
+    <div class="modal-head">
+      <h2>新建一首本地歌曲</h2>
+      <button type="button" class="modal-close" data-close-modal="newSongModal" aria-label="关闭">×</button>
+    </div>
+    <form id="newSongForm">
+      <label class="form-group">
+        <span class="form-label">歌曲显示名称</span>
+        <input type="text" id="newSongNameInput" class="form-input" required maxlength="80" placeholder="例如：海边的夏夜单车" />
+      </label>
+      <p class="form-hint">
+        每首歌曲分配独立稳定目录 ID（如 <code>data/song_xxxxxxxx/</code>），同名歌曲不会互相覆盖。
+      </p>
+      <div class="modal-foot">
+        <button type="button" class="btn-ghost" data-close-modal="newSongModal">取消</button>
+        <button type="submit" class="btn-primary">创建歌曲工程</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="studio-modal" id="historyModal" aria-label="不可变历史版本">
+    <div class="modal-head">
+      <h2>不可变历史版本 (data/song_8f3a91c2/revisions)</h2>
+      <button type="button" class="modal-close" data-close-modal="historyModal" aria-label="关闭">×</button>
+    </div>
+    <p class="form-hint">每次显式保存、采用 AI 候选或导入文件都会生成不可变修订，恢复旧版本会创建新的栈顶版本，不抹除历史。</p>
+    <div class="modal-list" id="historyModalList"></div>
+  </dialog>
+
+  <dialog class="studio-modal" id="trashModal" aria-label="歌曲回收站">
+    <div class="modal-head">
+      <h2>歌曲回收站 (data/.trash/)</h2>
+      <button type="button" class="modal-close" data-close-modal="trashModal" aria-label="关闭">×</button>
+    </div>
+    <p class="form-hint">删除的歌曲整目录移入 <code>data/.trash/&lt;歌曲ID&gt;</code>，保留所有历史版本、AI 候选与已导出音频，可一键完整恢复。</p>
+    <div class="modal-list" id="trashModalList"></div>
+  </dialog>
+
+  <footer class="studio-footer">
+    <div class="footer-left">
+      <strong>NeoNote · 新的乐章</strong>
+      <span>把复杂留给工具，把表达留给你。</span>
+    </div>
+    <div class="footer-right">
+      <span>路径：<code>frontend/front_gemini/</code>（独立静态视觉重设计原型）</span>
+    </div>
+  </footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>

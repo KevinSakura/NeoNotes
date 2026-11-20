@@ -45,16 +45,19 @@ export default function AudioExports({ project, dirty, busy, prepare, run, stopO
   const url = (job: RenderJob, extension: string) => `/api/projects/${project.id}/renders/${job.id}/audio/${extension}`;
 
   return <article className="card audio-exports">
-    <div className="card-heading"><h2>把编曲变成声音</h2><span className="tag">本地真实音色</span></div>
+    <div className="card-heading"><h2>把编曲变成声音</h2><span className="tag">GeneralUser GS · 本地真实音色</span></div>
     <p className="muted">先保存，再生成可试听的 WAV 和可分享的 MP3。使用本地音色库，不发送到云端。</p>
     <label className="field">音频包含哪些声部？<select disabled={busy} value={mode} onChange={event => setMode(event.target.value as 'mix' | 'full')}>
       <option value="mix">按当前独奏、静音与音量混音</option><option value="full">完整声部（忽略独奏和静音，保留音量）</option>
     </select></label>
+    <div className="inline-actions">
+    <span className="format-group" aria-hidden="true"><span className="format-badge wav">WAV</span><span className="format-badge mp3">MP3</span></span>
     <button className="primary" disabled={busy || pending} onClick={() => void run(async () => {
       player.current?.pause(); setPreviewId(null); const saved = await prepare();
       const job = await request<RenderJob>(`/projects/${saved.id}/renders`, { method: 'POST', body: JSON.stringify({ base_revision: saved.current_revision, mode }) });
       setItems(previous => [job, ...previous.filter(item => item.id !== job.id)]);
     })}>{pending ? '正在生成声音…' : '生成 WAV 与 MP3'}</button>
+    </div>
     <p className="hint">保留完整时间轴，结束后加 3 秒尾音；钢琴与鼓等音色来自 GeneralUser GS。电脑试听与导出引擎存在细微差异。</p>
     {error && <p role="alert">{error}</p>}
     {dirty && <p className="render-notice">当前有未保存修改。下方已生成音频属于旧稿；生成时会先保存当前修改。</p>}

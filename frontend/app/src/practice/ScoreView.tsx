@@ -11,9 +11,14 @@ export default function ScoreView({xml, notation, active = [], correct = [], onS
   const colors = useRef({active, correct}); colors.current = {active, correct};
   const [error, setError] = useState(''), [ready, setReady] = useState(false);
   function highlight(follow = false) {
+    if (!root.current) return;
+    const palette = getComputedStyle(root.current);
+    const ink = palette.getPropertyValue('--score-ink').trim();
+    const activeInk = palette.getPropertyValue('--score-active').trim();
+    const correctInk = palette.getPropertyValue('--score-correct').trim();
     const activeIds = new Set(colors.current.active), correctIds = new Set(colors.current.correct);
     for (const [id, {g, heads}] of mapping.current) {
-      const color = activeIds.has(id) ? '#c77712' : correctIds.has(id) ? '#24745f' : '#263e38';
+      const color = activeIds.has(id) ? activeInk : correctIds.has(id) ? correctInk : ink;
       g.setColor(color, {applyToNoteheads: false, applyToStem: false, applyToFlag: false, applyToModifiers: false, applyToTies: true});
       for (const head of heads) {
         head.setAttribute('data-active', String(activeIds.has(id)));

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from '../api';
 import { AudioEngine } from '../audio';
+import { Icon } from '../StudioDesign';
 import { noteName } from '../music.mjs';
 import { secondsAt } from './judge.mjs';
 import ScoreView from './ScoreView';
@@ -51,11 +52,11 @@ export default function Workspace({active}: {active: boolean}) {
     await previewAudio.current.play(notes.map((n:any)=>({pitch:n.pitch,velocity:n.velocity,start:secondsAt(material.parsed.tempos,n.start_tick)-start,duration:secondsAt(material.parsed.tempos,n.end_tick)-secondsAt(material.parsed.tempos,n.start_tick),track:{family:'keyboard',channel:14,program:0,volume:80}})),secondsAt(material.parsed.tempos,score.notation.end_tick)-start,()=>{},()=>{});
   }
   return <main className="practice-workspace" data-testid="practice-workspace">
-    <header><small>NeoNote · 识谱与节奏</small><h1>从一小段旋律练起。</h1><p>先认音，再跟着节拍演奏。错误和纠正都会留在记录里。</p></header>
+    <header className="page-heading"><span className="eyebrow">NeoNote · 识谱与节奏</span><h1>从一小段旋律练起。</h1><p>先认音，再跟着节拍演奏。错误和纠正都会留在记录里。</p></header>
     {error && <p role="alert" className="notice">{error}</p>}
     {units?<UnitLibrary catalog={units} records={records} busy={busy} onChoose={id=>void chooseUnit(id)} />:<section className="practice-card"><h2>本地基础单元</h2><p role={unitError?'alert':undefined}>{unitError||'正在读取本地练习单元…'}</p>{unitError&&<button onClick={()=>void request<UnitCatalog>('/practice/units').then(next=>{setUnits(next);setUnitError('');}).catch(e=>setUnitError(String(e)))}>重新读取单元</button>}</section>}
     <section className="practice-card"><h2>选择练习材料</h2>
-      <label className="file-button">导入练习 MIDI<input aria-label="导入练习MIDI" type="file" accept=".mid,.midi" disabled={busy} onChange={e => { const file = e.target.files?.[0]; if (file) void action(() => importFile(file)); e.target.value = ''; }} /></label>
+      <label className="file-button upload-button"><Icon name="upload" />导入练习 MIDI<input aria-label="导入练习MIDI" type="file" accept=".mid,.midi" disabled={busy} onChange={e => { const file = e.target.files?.[0]; if (file) void action(() => importFile(file)); e.target.value = ''; }} /></label>
       <label>已有材料<select aria-label="已有练习材料" value={material?.source.id ?? ''} disabled={busy} onChange={e => void action(async () => load(await request<Material>('/practice/materials/' + e.target.value)))}><option value="">请选择</option>{materials.map(m => <option key={m.id} value={m.id}>{m.name} · {m.id.slice(0, 6)}</option>)}</select></label>
       {material&&material.revisions.length>0&&<label>已保存练习版本<select aria-label="已保存练习版本" value={revision?.revision.id??''} onChange={e=>void action(async()=>{const r=await request<Revision>(`/practice/materials/${material.source.id}/revisions/${e.target.value}`);setSettings(r.revision.settings);setPreview(null);setRevision(r);setIncoming(undefined);})}><option value="">请选择不可变版本</option>{material.revisions.map(r=><option key={r.id} value={r.id}>{r.created_at.slice(0,19)} · {r.id.slice(0,6)}</option>)}</select></label>}
       <details><summary>从已保存创作复制材料</summary><select aria-label="复制创作歌曲" value={songId} onChange={e=>setSongId(e.target.value)}><option value="">请选择歌曲</option>{songs.map(s=><option key={s.id} value={s.id}>{s.name} · 当前保存版本</option>)}</select><button disabled={busy||!songId} onClick={()=>void action(async()=>{const song=songs.find(s=>s.id===songId);load(await request<Material>('/practice/from-song',{method:'POST',body:JSON.stringify({song_id:song.id,revision_id:song.current_revision})}));await refresh();})}>复制这个保存版本到练习</button><p>仅复制保存版本；原歌曲修改、删除或恢复不会改写已有练习材料。</p></details>
@@ -80,7 +81,7 @@ export default function Workspace({active}: {active: boolean}) {
       {preview && !preview.ready && <p role="alert">{preview.reason}</p>}
       {voiceOptions.length>0 && <fieldset><legend>推断声部（未选时预览全部）</legend>{voiceOptions.map(v => <label key={v.voice}><input type="checkbox" checked={settings.voices.includes(v.voice)} onChange={e => change({voices: e.target.checked ? [...settings.voices, v.voice] : settings.voices.filter(x => x !== v.voice)})} />声部{v.voice} · {v.note_count}音</label>)}</fieldset>}
     </section>}
-    {score && <section className="practice-card"><h2>确认整理后的五线谱</h2><div className="practice-score-with-guide"><div className="practice-score-column"><ScoreView xml={score.musicxml} notation={score.notation} active={selected} correct={correct} onSelect={id => setSelected([id])} onReady={setMapped} /></div><KeyGuide /><div className="practice-score-details">
+    {score && <section className="practice-card"><div className="card-heading"><h2>确认整理后的五线谱</h2><span className="tag accent">{revision ? '已保存练习版本' : '整理预览'}</span></div><div className="practice-score-with-guide"><div className="practice-score-column"><ScoreView xml={score.musicxml} notation={score.notation} active={selected} correct={correct} onSelect={id => setSelected([id])} onReady={setMapped} /></div><KeyGuide /><div className="practice-score-details">
       {builtin&&<div className="practice-unit-instructions" data-testid="active-unit"><h3>{builtin.unit_title} · {builtin.exercise_title}</h3><p>{builtin.goal}</p><ul>{builtin.instructions.map((tip,i)=><li key={i}>{tip}</li>)}</ul><p>这条固定谱已安排好音高与节奏，无需选择轨道或量化；核对谱面后确认即可练习。</p></div>}
       <p>实际片段：原小节{score.notation.measures[0].source_number}–{score.notation.measures.at(-1).source_number}；{score.targets.attacks.length}个起音组。延音线只起音一次，圆滑线中的不同音仍分别起音。</p>
       {preview?.report && <p>{preview.report.quantized_notes}音量化，最大偏移{preview.report.max_shift_ms.toFixed(1)}ms；排除{preview.report.excluded_notes}个未选声部音符。</p>}

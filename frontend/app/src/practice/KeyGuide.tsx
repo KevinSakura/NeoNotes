@@ -3,7 +3,7 @@ const blackKeys = [['e', 'C♯'], ['r', 'D♯'], ['y', 'F♯'], ['u', 'G♯'], [
 
 export default function KeyGuide() {
   return <aside className="practice-key-guide" aria-label="练习按键提醒">
-    <h3>按键提醒</h3>
+    <div className="card-heading"><h3>按键提醒</h3><span className="tag">练习键位</span></div>
     <p className="practice-key-guide-label">白键</p>
     <div className="practice-key-guide-white">{whiteKeys.map(([key, note]) => <span key={key}><kbd>{key}</kbd><span>{note}</span></span>)}</div>
     <p className="practice-key-guide-label">黑键</p>

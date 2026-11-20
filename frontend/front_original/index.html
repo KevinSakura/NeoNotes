@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeoNote · 新的乐章（视觉重设计原型）</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-theme="dark">
+  <!-- 图标集 -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-create" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+    <symbol id="i-practice" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v10M13 4v10M18 4v10M8 14h0M3 14h18"/></symbol>
+    <symbol id="i-trans" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h2M6 8v8M10 4v16M14 7v10M18 10v4M22 12h0"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-logo" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19V6l7 9V5"/><path d="M15 5v10a3 3 0 1 0 3-3"/></symbol>
+  </svg>
+
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="grain"></div>
+
+  <!-- 左侧导航 -->
+  <nav class="rail glass" aria-label="选择工作台">
+    <div class="logo" data-go="home" title="NeoNote 首页"><svg><use href="#i-logo"/></svg></div>
+    <button class="rail-btn" data-go="home"><svg><use href="#i-home"/></svg>首页</button>
+    <button class="rail-btn" data-go="creation"><svg><use href="#i-create"/></svg>创作</button>
+    <button class="rail-btn" data-go="practice"><svg><use href="#i-practice"/></svg>练习</button>
+    <button class="rail-btn" data-go="transcription"><svg><use href="#i-trans"/></svg>扒谱</button>
+    <div class="rail-bottom">
+      <button class="rail-btn" id="themeToggle" title="切换明暗主题"><svg><use href="#i-sun"/></svg><span>主题</span></button>
+    </div>
+  </nav>
+
+  <div class="shell">
+    <!-- 顶栏 -->
+    <header class="topbar glass">
+      <div class="crumbs">
+        <span class="mode" id="crumbMode">NeoNote</span><span class="sep">/</span>
+        <span class="title" id="crumbTitle">新的乐章</span>
+        <span class="proto-badge" title="示例数据，不连接后端">视觉重设计原型</span>
+      </div>
+      <div class="spacer"></div>
+      <span class="tag accent" id="modelTag" title="原型仅展示状态样式，不连接后端"><span class="dot"></span>AI 模拟模式</span>
+      <span class="save-state" id="saveState"><span class="dot" style="color:var(--ok)"></span>已保存 · v12</span>
+      <button class="btn sm ghost" data-modal="history"><svg width="15" height="15"><use href="#i-history"/></svg>历史版本</button>
+      <button class="btn sm primary" id="saveBtn">保存歌曲</button>
+    </header>
+
+    <main>
+      <!-- ============ 首页 ============ -->
+      <section class="view" id="view-home">
+        <div class="hero glass">
+          <div>
+            <span class="eyebrow">NeoNote · 新的乐章</span>
+            <h1>从一点灵感，<br /><span class="gradient-text">开始一首歌。</span></h1>
+            <p>弹几个音，写一段话，或带上你的歌词。不需要先学乐理，NeoNote 帮你把旋律、情感和故事编成可编辑、可演奏的四声部作品。</p>
+            <div class="row">
+              <button class="btn lg primary" data-go="creation"><svg width="18" height="18"><use href="#i-sparkle"/></svg>开始创作</button>
+              <button class="btn lg" data-go="practice">先练练手</button>
+            </div>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="eq" id="heroEq"></div>
+            <div class="mini-keys" id="heroKeys"></div>
+          </div>
+        </div>
+
+        <div class="entry-grid">
+          <button class="entry glass" data-go="creation" style="--glow:#8b7cff">
+            <div class="ico" style="background:linear-gradient(135deg,#8b7cff,#4f8bff)"><svg><use href="#i-create"/></svg></div>
+            <h3>创作</h3>
+            <p>用电脑键盘弹出灵感，写下主题与歌词，让 AI 编排键盘、鼓、吉他、贝斯。</p>
+            <ul><li>虚拟键盘录制与回放</li><li>AI 四声部编曲与自然语言修改</li><li>MIDI / WAV / MP3 与演唱导出</li></ul>
+            <span class="go">进入创作 →</span>
+          </button>
+          <button class="entry glass" data-go="practice" style="--glow:#35d9c0">
+            <div class="ico" style="background:linear-gradient(135deg,#35d9c0,#1a9bd6)"><svg><use href="#i-practice"/></svg></div>
+            <h3>练习</h3>
+            <p>对着五线谱认音、打节奏，错了可以纠正，首次答案与纠正记录分别保留。</p>
+            <ul><li>5 个本地新手单元</li><li>认音轮 + 节奏轮</li><li>导入 MIDI 自建练习</li></ul>
+            <span class="go">进入练习 →</span>
+          </button>
+          <button class="entry glass" data-go="transcription" style="--glow:#ff7a8a">
+            <div class="ico" style="background:linear-gradient(135deg,#ff7a8a,#ffb35c)"><svg><use href="#i-trans"/></svg></div>
+            <h3>扒谱</h3>
+            <p>把钢琴录音转成 MIDI 与五线谱，逐段校对后另存修订，原始结果始终保留。</p>
+            <ul><li>MP3 / WAV 选段转录</li><li>混音钢琴分离（试验）</li><li>校对与 MusicXML 导出</li></ul>
+            <span class="go">进入扒谱 →</span>
+          </button>
+        </div>
+
+        <div class="section-title"><h2>最近的作品</h2><span class="muted">原型示例数据</span></div>
+        <div class="recent-grid" id="recentGrid"></div>
+      </section>
+
+      <!-- ============ 创作 ============ -->
+      <section class="view" id="view-creation">
+        <div class="creation-layout">
+          <aside class="song-panel glass">
+            <button class="btn primary" data-modal="new"><svg width="15" height="15"><use href="#i-plus"/></svg>新建歌曲</button>
+            <label class="song-search"><svg><use href="#i-search"/></svg><input class="input" id="songSearch" placeholder="搜索歌曲" aria-label="搜索歌曲" /></label>
+            <div class="row" style="justify-content:space-between"><span class="muted">我的歌曲</span><span class="muted" id="songCount"></span></div>
+            <nav class="song-list" id="songList" aria-label="歌曲列表"></nav>
+            <div class="panel-foot">
+              <button class="btn sm ghost" data-modal="trash"><svg width="14" height="14"><use href="#i-trash"/></svg>回收站</button>
+              <span class="muted">data/</span>
+            </div>
+          </aside>
+
+          <div>
+            <nav class="stepper glass" aria-label="工作步骤">
+              <button class="step active" data-step="inputs"><span class="n">01</span><span><b>收集灵感</b><small>弹奏 · 描述 · AI 编曲</small></span></button>
+              <button class="step" data-step="edit"><span class="n">02</span><span><b>演奏与编辑</b><small>声部 · 音符 · 审核</small></span></button>
+              <button class="step" data-step="files"><span class="n">03</span><span><b>保存与导出</b><small>MIDI · 音频 · 演唱</small></span></button>
+            </nav>
+
+            <!-- 01 收集灵感 -->
+            <div class="pane active" id="pane-inputs">
+              <div class="pane-head">
+                <div><span class="eyebrow">A little sound, a little story</span><h1>先听听，再决定怎么表达。</h1><p>演奏和文字都可以先保存；不弹琴，也可以只用文字开始。</p></div>
+              </div>
+              <div class="inputs-grid">
+                <div class="stack">
+                  <article class="card glass">
+                    <div class="card-head"><h2><span class="num">1</span>试着弹一小段</h2><span class="tag">原型合成音</span></div>
+                    <div class="seg" id="instSeg">
+                      <button class="active" data-inst="keyboard"><span class="sw" style="background:var(--c-keys)"></span>键盘</button>
+                      <button data-inst="drums"><span class="sw" style="background:var(--c-drums)"></span>鼓</button>
+                      <button data-inst="guitar"><span class="sw" style="background:var(--c-guitar)"></span>吉他</button>
+                      <button data-inst="bass"><span class="sw" style="background:var(--c-bass)"></span>贝斯</button>
+                    </div>
+                    <div class="keyboard-wrap">
+                      <div class="kb-top">
+                        <span>按 <b style="color:#fff">A–K</b> 白键 · <b style="color:#fff">W E T Y U</b> 黑键 · 输入文字时不触发</span>
+                        <span class="kb-led"><span id="kbNote">—</span><span style="opacity:.4">|</span><span id="kbOct">C4</span></span>
+                      </div>
+                      <div class="keyboard" id="keyboard"></div>
+                    </div>
+                    <div class="kb-foot">
+                      <span class="muted" id="instHint">Acoustic Grand Piano · 电脑按键固定力度</span>
+                      <div class="row"><button class="btn sm" id="octDown">− 低八度</button><button class="btn sm" id="octUp">高八度 +</button></div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="row">
+                      <button class="btn record" id="recBtn">● 开始录制</button>
+                      <button class="btn" id="replayBtn" disabled><svg width="13" height="13"><use href="#i-play"/></svg>回放片段</button>
+                      <button class="btn ghost" id="clearRec" disabled>清空</button>
+                      <span class="spacer"></span>
+                      <span class="muted" id="recInfo">尚未录制</span>
+                    </div>
+                    <div class="timeline" id="timeline"><div class="empty">录制后，你弹奏的每个音会出现在这里</div></div>
+                    <div class="row"><button class="btn sm" id="toArrange" disabled>把片段加入编曲 →</button><span class="muted">保留原始录制，不自动纠错或量化。</span></div>
+                  </article>
+                </div>
+
+                <div class="stack">
+                  <article class="card glass">
+                    <div class="card-head"><h2><span class="num">2</span>描述你想要的感觉</h2></div>
+                    <label class="field">主题<input class="input" id="themeInput" placeholder="例如：夏天傍晚骑车回家" value="海边的告别" /></label>
+                    <div class="field">音乐感觉<span class="hint">可多选，也可以在下方自由描述</span>
+                      <div class="chips" id="moodChips"></div>
+                    </div>
+                    <textarea class="textarea" id="feelInput" style="min-height:70px" placeholder="想要的节奏、乐器、氛围……">前半段安静，副歌明亮一点，像风吹过来。</textarea>
+                    <label class="field">歌词<span class="hint">全文一次谱曲，最多 64 行 / 1024 字词；不填写则只按主题和感觉生成</span>
+                      <textarea class="textarea" id="lyricInput" placeholder="每行一句……">潮水退去的时候
+你说要去更远的地方
+我把晚风折成信
+寄给明天的太阳</textarea>
+                      <span class="counter"><span><b id="lyricLines">0</b> 行 · <b id="lyricWords">0</b> / 1024 字词</span><span><label style="cursor:pointer;color:var(--accent)">上传 .txt<input type="file" accept=".txt" id="lyricFile" hidden /></label></span></span>
+                    </label>
+                  </article>
+
+                  <article class="card glass ai-card">
+                    <div class="card-head"><h2><span class="num">3</span>AI 编曲</h2><span class="tag accent"><svg width="12" height="12"><use href="#i-sparkle"/></svg>DeepSeek</span></div>
+                    <div class="field">演奏片段用法
+                      <div class="seg" id="melodySeg"><button class="active">保留旋律</button><button>自由改编</button><button>仅用文字</button></div>
+                    </div>
+                    <div class="model-line"><span><span class="dot" style="color:var(--warn)"></span>&nbsp; 模拟模式 · 结果仅作界面演示</span><span class="muted mono">32768 tokens</span></div>
+                    <label class="check"><input type="checkbox" id="consent" />我了解真实模式会把所选输入发送给 DeepSeek 并消耗额度；每次只发送一个请求，不自动重试。</label>
+                    <button class="btn lg primary" id="genBtn" disabled><svg width="18" height="18"><use href="#i-sparkle"/></svg>生成四声部编曲</button>
+                    <div class="progress" id="genProg" hidden><i></i></div>
+                    <div class="candidate" id="candidate">
+                      <div class="row"><b>候选 #1 · 1:52</b><span class="tag warn">模拟结果</span><span class="spacer"></span><span class="tag ok">结构检查通过</span></div>
+                      <div class="cand-tracks" id="candTracks"></div>
+                      <div class="row"><button class="btn sm"><svg width="12" height="12"><use href="#i-play"/></svg>试听候选</button><button class="btn sm primary" id="adoptBtn">采用为草稿 →</button><span class="muted">采用后仍需人工审核</span></div>
+                    </div>
+                  </article>
+                </div>
+              </div>
+            </div>
+
+            <!-- 02 演奏与编辑 -->
+            <div class="pane" id="pane-edit">
+              <div class="pane-head">
+                <div><span class="eyebrow">Shape every note</span><h1>每个音，都由你决定。</h1><p>点击音符查看与修改；静音、独奏只影响试听，MIDI 导出保留全部声部。</p></div>
+              </div>
+              <div class="editor-toolbar glass">
+                <button class="btn icon primary" id="playBtn" title="播放"><svg width="15" height="15"><use href="#i-play"/></svg></button>
+                <button class="btn icon" id="stopBtn" title="停止"><svg width="14" height="14"><use href="#i-stop"/></svg></button>
+                <span class="transport-clock" id="clock">00:00.0</span>
+                <span class="vsep"></span>
+                <button class="btn icon ghost" id="undoBtn" title="撤销"><svg width="17" height="17"><use href="#i-undo"/></svg></button>
+                <button class="btn icon ghost" title="重做" disabled><svg width="17" height="17"><use href="#i-redo"/></svg></button>
+                <span class="vsep"></span>
+                <button class="btn sm" id="addNote"><svg width="13" height="13"><use href="#i-plus"/></svg>添加音符</button>
+                <button class="btn sm danger" id="delNote" disabled><svg width="13" height="13"><use href="#i-trash"/></svg>删除</button>
+                <span class="spacer"></span>
+                <button class="btn sm"><svg width="13" height="13"><use href="#i-upload"/></svg>导入 MIDI</button>
+                <span class="tag">♩ = 92 · 4/4 · C 大调</span>
+              </div>
+
+              <div class="editor-layout">
+                <div class="tracks glass" id="tracks"></div>
+                <div class="roll glass">
+                  <div class="roll-head"><span id="rollTitle">键盘 · Acoustic Grand Piano</span><span>其他声部以淡色显示 · 拖动滚动条浏览时间轴</span></div>
+                  <div class="roll-body" id="rollBody">
+                    <div class="roll-keys" id="rollKeys"></div>
+                    <div class="roll-grid" id="rollGrid"><div class="playhead" id="playhead"></div></div>
+                  </div>
+                  <div class="note-inspector" id="inspector">未选择音符 · 点击卷帘中的音符进行编辑</div>
+                </div>
+              </div>
+
+              <div class="below-grid">
+                <article class="card glass">
+                  <div class="card-head"><h2>用一句话修改整首歌</h2><span class="tag accent">整曲层面</span></div>
+                  <div class="nl-box"><input class="input" placeholder="例如：副歌鼓更有力一些，贝斯走得更活泼" /><button class="btn primary"><svg width="15" height="15"><use href="#i-sparkle"/></svg>修改</button></div>
+                  <div class="divider"></div>
+                  <div class="card-head"><h2>人工审核</h2><span class="tag warn">待完成 2 项</span></div>
+                  <div class="review-list">
+                    <div class="review-item"><span class="st" style="background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)">✓</span><div>结构与歌词对应检查<small>软件检查 · 不代表音乐质量</small></div><span class="tag ok">通过</span></div>
+                    <div class="review-item"><span class="st" style="background:var(--surface-solid)">♪</span><div>完整试听<small>确认曲风、和声和段落是否符合预期</small></div><button class="btn sm">标记已听</button></div>
+                    <div class="review-item"><span class="st" style="background:var(--surface-solid)">🎤</span><div>逐句试唱<small>播放不会自动确认试唱</small></div><button class="btn sm">去试唱</button></div>
+                  </div>
+                </article>
+                <article class="card glass">
+                  <div class="card-head"><h2>逐句练唱</h2><div class="seg" id="speedSeg"><button class="active">1.0×</button><button>0.75×</button></div></div>
+                  <div class="lyric-lines" id="lyricPractice"></div>
+                  <p class="muted">变速与单句循环只改变试听，不改变音高、歌曲、MIDI 或导出文件。</p>
+                </article>
+              </div>
+            </div>
+
+            <!-- 03 保存与导出 -->
+            <div class="pane" id="pane-files">
+              <div class="pane-head">
+                <div><span class="eyebrow">Keep what you have made</span><h1>把灵感，留在这首歌里。</h1><p>歌词、演奏输入、乐谱、音频和历史版本，都在这首歌自己的目录中。</p></div>
+              </div>
+              <div class="files-grid">
+                <div class="stack">
+                  <article class="card glass">
+                    <div class="card-head"><h2>歌曲工程</h2><span class="tag accent">当前已保存 v12</span></div>
+                    <dl class="kv">
+                      <dt>保存位置</dt><dd><code>data/7f3a9c21…/</code></dd>
+                      <dt>保存方式</dt><dd>手动保存；收到后端确认后显示已保存</dd>
+                      <dt>当前内容</dt><dd>4 个声部 · 312 个音符 · 4 行歌词</dd>
+                      <dt>时间轴</dt><dd>01:52.4（空白时间也保留在 MIDI 中）</dd>
+                    </dl>
+                    <div class="row"><button class="btn primary">保存当前版本</button><button class="btn">下载草稿 JSON</button></div>
+                  </article>
+                  <article class="card glass">
+                    <div class="card-head"><h2>历史版本</h2><span class="muted">恢复会创建新版本</span></div>
+                    <div class="history" id="historyInline"></div>
+                  </article>
+                </div>
+                <div class="stack">
+                  <article class="card glass">
+                    <div class="card-head"><h2>带走你的音乐</h2><span class="tag">GeneralUser GS</span></div>
+                    <div class="export-list">
+                      <div class="export"><span class="fi" style="background:linear-gradient(135deg,#8b7cff,#4f8bff)">MIDI</span><div><b>多轨 MIDI</b><small>保留音符、时间、轨道名与实际乐器</small></div><button class="btn sm"><svg width="13" height="13"><use href="#i-download"/></svg>导出</button></div>
+                      <div class="export"><span class="fi" style="background:linear-gradient(135deg,#35d9c0,#1a9bd6)">WAV</span><div><b>渲染音频</b><small>按静音 / 独奏混音 · 尾音 3 秒</small></div><button class="btn sm">渲染试听</button></div>
+                      <div class="export"><span class="fi" style="background:linear-gradient(135deg,#ff7a8a,#ffb35c)">MP3</span><div><b>分享用音频</b><small>与版本绑定，失败不覆盖旧文件</small></div><button class="btn sm" disabled>先渲染</button></div>
+                    </div>
+                  </article>
+                  <article class="card glass">
+                    <div class="card-head"><h2>现成歌手演唱</h2><span class="tag">非商业演示</span></div>
+                    <div class="vocal-hero">
+                      <div class="avatar">绮</div>
+                      <div style="flex:1;min-width:0"><b>绮萱 Qixuan v2.7.0</b><p class="muted">普通话独唱 · 按实际音符与速度图演唱 · 派生伴奏移除导唱</p></div>
+                      <button class="btn sm primary">生成演唱</button>
+                    </div>
+                    <div class="mix"><span>人声</span><input type="range" min="0" max="100" value="85" data-out /><output>85</output></div>
+                    <div class="mix"><span>伴奏</span><input type="range" min="0" max="100" value="70" data-out /><output>70</output></div>
+                    <p class="muted">读音修正、合听与独立 WAV / 混音 MP3 在生成成功后可用。</p>
+                  </article>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 练习 ============ -->
+      <section class="view" id="view-practice">
+        <div class="pane-head">
+          <div><span class="eyebrow">Read · Play · Feel the beat</span><h1>看着五线谱，弹对每一个音。</h1><p>选择一个本地新手单元，或导入自己的 MIDI。认音可以纠正，全部正确后进入节奏轮。</p></div>
+          <div class="row"><button class="btn"><svg width="14" height="14"><use href="#i-upload"/></svg>导入 MIDI</button><button class="btn ghost">练习记录</button></div>
+        </div>
+        <div class="units" id="units"></div>
+
+        <div class="practice-grid">
+          <div class="stack">
+            <article class="card glass">
+              <div class="card-head">
+                <h2 id="unitTitle">单音认谱 · 第 1 条</h2>
+                <div class="phase-switch"><div class="seg" id="phaseSeg"><button class="active" data-phase="pitch">① 认音轮</button><button data-phase="rhythm">② 节奏轮</button></div></div>
+              </div>
+              <div class="score" id="score"></div>
+              <div class="feedback" id="feedback"><span class="big" id="fbBig">♪</span><div><b id="fbTitle">按下目标音对应的按键</b><p class="muted" id="fbText">紫色音符是当前目标。按错会标红，可以继续纠正。</p></div></div>
+              <div class="row" id="rhythmBar" hidden>
+                <span class="muted">预备拍</span><div class="beat-dots" id="beatDots"><i></i><i></i><i></i><i></i></div>
+                <span class="spacer"></span>
+                <label class="muted" style="display:flex;gap:8px;align-items:center">速度 <input type="range" min="50" max="120" value="72" id="bpm" style="width:110px" /> <output id="bpmOut" class="mono">72</output></label>
+                <button class="btn sm primary" id="beatBtn"><svg width="12" height="12"><use href="#i-play"/></svg>开始节奏轮</button>
+              </div>
+            </article>
+            <div class="stats">
+              <div class="stat glass"><small>首次准确率</small><b id="stFirst">—</b></div>
+              <div class="stat glass"><small>纠正次数</small><b id="stFix">0</b></div>
+              <div class="stat glass"><small>进度</small><b id="stProg">0/0</b></div>
+              <div class="stat glass"><small>用时</small><b id="stTime">0:00</b></div>
+            </div>
+          </div>
+
+          <aside class="keyguide card glass">
+            <div class="card-head"><h2>按键提醒</h2><span class="tag">练习键位</span></div>
+            <div>
+              <div class="kg-row black" id="kgBlack"></div>
+              <div class="kg-row" id="kgWhite" style="margin-top:5px"></div>
+            </div>
+            <div class="field">基础八度<div class="octave-meter" id="octMeter"><span>3</span><span class="on">4</span><span>5</span></div></div>
+            <ul class="rules">
+              <li>单按 <kbd>Shift</kbd> / <kbd>空格</kbd> 后松开：降低 / 升高基础八度</li>
+              <li>按住修饰键再弹：同时奏响基础音与低 / 高八度</li>
+              <li><kbd>l</kbd> 始终是右侧高 C</li>
+              <li>同时按住两个修饰键不接受新音</li>
+            </ul>
+            <p class="muted">原型仅模拟单音判定与切档，完整组合规则以正式应用为准。</p>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ============ 扒谱 ============ -->
+      <section class="view" id="view-transcription">
+        <div class="pane-head">
+          <div><span class="eyebrow">From sound to score</span><h1>把一段钢琴声，变成可编辑的乐谱。</h1><p>选取最多 60 秒片段转录；原始音频与 MIDI 保留，校对结果另存为新修订。</p></div>
+        </div>
+        <div class="trans-grid">
+          <aside class="song-panel glass">
+            <span class="muted">转录任务</span>
+            <div class="song-list" id="taskList"></div>
+          </aside>
+          <div class="stack">
+            <article class="card glass">
+              <label class="drop" id="drop">
+                <span class="ico"><svg><use href="#i-upload"/></svg></span>
+                <span><b style="font-size:15px">拖入或选择音频文件</b><br /><span class="muted">MP3 / PCM WAV · 最大 100 MiB · 最长 10 分钟</span></span>
+                <input type="file" accept=".mp3,.wav" hidden id="audioFile" />
+              </label>
+              <div class="card-head"><h2 id="audioName">Canon_in_D.mp3</h2><span class="muted mono">04:56 · 44.1 kHz</span></div>
+              <div class="wave" id="wave"><div class="sel" id="waveSel"></div></div>
+              <div class="range-row">
+                <label class="field">起点 <span class="hint" id="startOut">00:00</span><input type="range" min="0" max="296" value="0" id="selStart" /></label>
+                <label class="field">终点 <span class="hint" id="endOut">00:20</span><input type="range" min="0" max="296" value="20" id="selEnd" /></label>
+              </div>
+            </article>
+
+            <article class="card glass">
+              <div class="card-head"><h2>转录方式</h2></div>
+              <div class="mode-cards" id="modeCards">
+                <button class="mode-card active" data-mode="solo"><b>🎹 钢琴独奏</b><small>直接用 Transkun 转录，适合纯钢琴录音。</small></button>
+                <button class="mode-card" data-mode="mix"><b>🎛 混音分离 <span class="tag warn">试验</span></b><small>先用 Demucs 分离 piano 声部，试听确认后再转录；可能有串音。</small></button>
+              </div>
+              <div class="pipeline" id="pipeline">
+                <div class="pipe" data-k="load"><span class="ps">1</span><b>读取片段</b><small>解码并截取所选区间</small></div>
+                <div class="pipe skip" data-k="sep"><span class="ps">2</span><b>钢琴分离</b><small>仅混音模式</small></div>
+                <div class="pipe" data-k="tr"><span class="ps">3</span><b>转录 MIDI</b><small>原始事件保留</small></div>
+                <div class="pipe" data-k="score"><span class="ps">4</span><b>整理记谱</b><small>生成五线谱修订</small></div>
+              </div>
+              <div class="row"><button class="btn primary" id="transBtn">开始转录</button><button class="btn ghost" id="transCancel" disabled>取消</button><span class="spacer"></span><span class="muted" id="transInfo">本地推理 · 原型仅模拟进度</span></div>
+            </article>
+
+            <article class="card glass" id="transResult" hidden>
+              <div class="card-head"><h2>转录结果</h2><span class="tag warn">模拟数据</span></div>
+              <div class="result-roll" id="resultRoll"></div>
+              <div class="row"><span class="tag">186 个音符</span><span class="tag">右手 4 声部 · 左手 3 声部</span><span class="tag">♩ ≈ 64</span><span class="spacer"></span><button class="btn sm">校对谱面</button><button class="btn sm">导出 MIDI</button><button class="btn sm">导出 MusicXML</button></div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 播放条 -->
+  <div class="player glass" id="player">
+    <div class="meter-bars" id="meterBars"><i></i><i></i><i></i><i></i><i></i></div>
+    <span class="p-time" id="pTime">00:00 / 00:16</span>
+    <div class="p-bar"><i id="pBar"></i></div>
+    <button class="btn sm" id="pStop"><svg width="12" height="12"><use href="#i-stop"/></svg>停止</button>
+  </div>
+
+  <!-- 弹窗 -->
+  <div class="modal-back" id="modal-new">
+    <form class="modal glass" onsubmit="return false">
+      <h3>新建歌曲</h3>
+      <label class="field">歌曲名称<input class="input" id="newName" maxlength="80" placeholder="例如：周末的小旅行" required /></label>
+      <p class="muted">创建空白歌曲，使用独立 ID 保存到 data/，同名歌曲也不会互相覆盖。</p>
+      <div class="modal-actions"><button class="btn" type="button" data-close>取消</button><button class="btn primary" id="createSong">创建歌曲</button></div>
+    </form>
+  </div>
+  <div class="modal-back" id="modal-history">
+    <div class="modal glass">
+      <h3>已保存的历史版本</h3>
+      <p class="muted">版本保存在磁盘，刷新或重启后仍可恢复；恢复历史会创建新版本。</p>
+      <div class="history" id="historyModal"></div>
+      <div class="modal-actions"><button class="btn" data-close>关闭</button></div>
+    </div>
+  </div>
+  <div class="modal-back" id="modal-trash">
+    <div class="modal glass">
+      <h3>回收站</h3>
+      <p class="muted">删除的歌曲整首移入 data/.trash/，可恢复原 ID 与全部已保存内容。</p>
+      <div id="trashList" style="display:flex;flex-direction:column;gap:6px"></div>
+      <div class="modal-actions"><button class="btn" data-close>关闭</button></div>
+    </div>
+  </div>
+  <div class="modal-back" id="modal-delete">
+    <div class="modal glass">
+      <h3>将歌曲移入回收站？</h3>
+      <p class="muted" id="deleteText"></p>
+      <div class="modal-actions"><button class="btn" data-close>取消</button><button class="btn primary" id="confirmDelete" style="background:linear-gradient(135deg,#ff6b7d,#ff3d6e)">确认删除</button></div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toasts"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

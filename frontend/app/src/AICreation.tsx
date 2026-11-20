@@ -3,6 +3,7 @@ import { request } from './api';
 import type { PhraseBudget, GenerationJob, PracticePlayer, Project, ReviewStatus, SongState } from './types';
 import { fullLyricLines, lyricSelection, noteName, secondsAt } from './music.mjs';
 import LyricPractice from './LyricPractice';
+import { Icon } from './StudioDesign';
 
 interface ModelStatus { mode: 'mock' | 'real' | 'unavailable'; ready: boolean; error: string | null; model: string; max_tokens: number; full_song_max_tokens: number }
 interface Props {
@@ -10,9 +11,10 @@ interface Props {
   prepare: () => Promise<Project>; run: (action: () => Promise<void>) => Promise<void>;
   apply: (job: GenerationJob) => void; preview: (state: SongState) => void;
   practice: PracticePlayer;
+  onModelMode: (mode: ModelStatus['mode'] | null) => void;
 }
 
-export default function AICreation({ project, draft, busy, operation, dirty = false, reviewSignal = 0, prepare, run, apply, preview, practice }: Props) {
+export default function AICreation({ project, draft, busy, operation, dirty = false, reviewSignal = 0, prepare, run, apply, preview, practice, onModelMode }: Props) {
   const [status, setStatus] = useState<ModelStatus | null>(null);
   const [jobs, setJobs] = useState<GenerationJob[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -45,7 +47,11 @@ export default function AICreation({ project, draft, busy, operation, dirty = fa
 
   useEffect(() => {
     let alive = true;
-    void request<ModelStatus>('/model/status').then(result => { if (alive) setStatus(result); }).catch(error => { if (alive) setError(error.message); });
+    void request<ModelStatus>('/model/status').then(result => {
+      if (alive) { setStatus(result); onModelMode(result.mode); }
+    }).catch(error => {
+      if (alive) { setError(error.message); onModelMode(null); }
+    });
     return () => { alive = false; };
   }, []);
 
@@ -110,7 +116,7 @@ export default function AICreation({ project, draft, busy, operation, dirty = fa
 
   const source = draft.inputs.recording.filter(note => note.family !== 'drums').slice(0, 8);
   return <article className="card ai-card" data-testid={`ai-${operation}`}>
-    <div className="card-heading"><h2>{full ? '从已审核短曲生成整曲' : operation === 'generate' ? usesLyrics ? '为歌词全文谱曲' : '把灵感编成 60 秒短曲' : '用一句话调整整首歌'}</h2><span className="tag">{status?.mode === 'real' ? 'DeepSeek · 真实模式' : status?.mode === 'mock' ? '模拟流程' : '检查模型配置'}</span></div>
+    <div className="card-heading"><h2>{operation === 'generate' && <em className="card-number" aria-hidden="true">3</em>}{full ? '从已审核短曲生成整曲' : operation === 'generate' ? usesLyrics ? '为歌词全文谱曲' : '把灵感编成 60 秒短曲' : '用一句话调整整首歌'}</h2><span className={`tag ${status?.mode === 'mock' ? 'warn' : 'accent'}`}><Icon name="sparkle" />{status?.mode === 'real' ? 'DeepSeek · 真实模式' : status?.mode === 'mock' ? '模拟流程' : '检查模型配置'}</span></div>
     {status?.mode === 'mock' && <p className="hint">当前生成的是明确标注的模拟曲，用于体验流程，不调用 API，也不代表 DeepSeek 编曲质量。</p>}
     {status?.mode === 'real' && !useV2 && <p className="muted">每次生成最多请求一次 DeepSeek，输出上限 {tokenLimit} token，不自动重试。候选通过结构检查后仍需试听和人工试唱。</p>}
     {full && <>
@@ -149,15 +155,16 @@ export default function AICreation({ project, draft, busy, operation, dirty = fa
     {jobs.filter(job => job.contract === 'lyric-phrases-v2' && ['failed', 'cancelled', 'interrupted'].includes(job.status)).slice(0, 3).map(job => <div key={'retry-' + job.id}>
       <button disabled={busy || pending || dirty || job.base_revision !== project.current_revision} onClick={() => void run(() => retry(job))}>查看重试预算 · {job.id.slice(0, 8)}</button>
     </div>)}
-    {jobs.slice(0, 8).map(job => <div className="generation-row" key={job.id}>
+    {jobs.slice(0, 8).map(job => <div className="generation-row" data-status={job.status} key={job.id}>
       <div><b>{job.mock ? '模拟' : 'AI'} · {job.operation === 'full' ? '完整歌曲' : job.operation === 'modify' ? '整曲修改' : job.scope === 'lyrics' ? '全文歌词谱曲' : '60秒短曲'} · 输入 v{job.base_number}</b><small data-testid="generation-status">{job.phase}</small>{job.error && <p className="render-notice">{job.error}</p>}{!job.mock && job.request_count > 0 && <small>{job.metadata?.usage ? `实际输入 ${job.metadata.usage.prompt_tokens ?? '未知'} / 输出 ${job.metadata.usage.completion_tokens ?? '未知'} token` : '用量尚未确认'}；失败请求也可能计费，以服务商账单为准。</small>}</div>
       {job.contract === 'lyric-phrases-v2' && <p className="hint" data-testid="phrase-task-ledger">试验v2 · 预算最多{job.reserved_attempts}次；{job.mock ? '模拟分发' : 'HTTP分发'} {job.mock ? job.simulated_requests : job.request_count}次；成功块 {job.blocks?.filter(b => b.status === 'completed').length ?? 0}/{job.blocks?.length ?? 0}。全文统一校验后才发布候选。</p>}
       {job.status === 'completed' && job.operation === operation && <button disabled={busy} aria-label={`查看候选 ${job.id.slice(0, 8)}`} onClick={() => setSelectedId(job.id)}>查看候选</button>}
     </div>)}
     {chosen?.status === 'completed' && candidate?.composition && <div className="candidate-preview" data-testid="candidate-preview">
-      <h3>{candidate.composition.title}{chosen.mock ? ' · 模拟结果' : ''}</h3>
+      <div className="card-heading"><h3>{candidate.composition.title}{chosen.mock ? ' · 模拟结果' : ''}</h3><span className="tag ok">结构检查通过</span></div>
       <p>{candidate.composition.style_summary}</p><p className="muted">{secondsAt(candidate.score, candidate.score.end_tick).toFixed(3)} 秒 · {candidate.score.tracks.length} 个声部 · {candidate.score.tracks.reduce((count, track) => count + track.notes.length, 0)} 个音符</p>
       <p className="muted">{candidate.composition.sections.map(section => section.name).join(' → ')} · 调性 {candidate.composition.key}</p>
+      <div className="candidate-tracks">{candidate.score.tracks.map(track => <span key={track.id} data-family={track.family}><b>{track.name}</b><small>{track.notes.length} 个音符</small></span>)}</div>
       <p className="hint">已检查音乐结构；旋律、风格与歌词可唱性仍需人工验收。</p>
       {candidate.composition.arrangement === 'lyric-phrases-v2' && <p className="muted" data-testid="phrase-contract">试验v2 · {candidate.composition.v2?.phrase_layout.length} 个音乐乐句；稳定字词编号与实际音符绑定。词组、重音和乐句表达需要人工试听；这份候选未代表真实模型效果或歌声验收。</p>}
       {candidate.composition.arrangement === 'lyric-motifs-v1' && <p className="muted">此候选采用逐句旋律型循环与句尾收束；字词对应、换气和四声部伴奏由平台生成。重复是否自然、重音和伴奏表现仍需人工确认。</p>}
